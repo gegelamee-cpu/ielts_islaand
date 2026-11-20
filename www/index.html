@@ -1,7 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>IELTS Island: Band 8 Quest</title>
+<style>
+:root{--card:#fff3d6;--ink:#3b2410;--wood:#8a5a2b;--acc:#f5a524;--ok:#2e9e4f;--bad:#d64545;--mut:#7a6650;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--card:#2a1d12;--ink:#f6e8d0;--mut:#c2ad90;color-scheme:dark}}
+:root[data-theme="dark"]{--card:#2a1d12;--ink:#f6e8d0;--mut:#c2ad90;color-scheme:dark}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:#0b5f87;font-family:Georgia,"Palatino Linotype",serif;color:var(--ink);overflow:hidden}
+#wrap{position:fixed;inset:0;overflow:auto;display:flex;background:radial-gradient(#19a7d6,#0b5f87)}
+#stage{position:relative;flex:none;width:max(100vw,980px);margin:auto}
+#isl{width:100%;display:block;user-select:none;-webkit-user-drag:none}
+.sign{position:absolute;transform:translate(-50%,0);background:linear-gradient(#c58a45,#8a5a2b);color:#fff3d6;border:2px solid #4a2d10;border-radius:6px;padding:2px 10px;font:700 clamp(12px,1.2vw,16px) Georgia,serif;cursor:pointer;box-shadow:0 2px 0 #3a210a;white-space:nowrap;z-index:4}
+.sign:hover,.sign:focus-visible{filter:brightness(1.2);outline:2px solid #fff}
+#hero{position:absolute;width:13%;transform:translate(-50%,-90%);pointer-events:none;z-index:5;left:50%;top:56%}
+#hi{width:100%;display:block;transform-origin:50% 90%}
+#hero.flip #hf{transform:scaleX(-1)}
+@keyframes walk{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-6%) rotate(2deg)}}
+.walk #hi{animation:walk .35s infinite}
+@keyframes chop{0%{transform:rotate(0)}40%{transform:rotate(-14deg) translateY(-3%)}70%{transform:rotate(12deg) translateX(4%) scale(1.04)}100%{transform:rotate(0)}}
+#hi.chop{animation:chop .5s}
+.p{position:absolute;width:7px;height:7px;background:#c58a45;border-radius:2px;z-index:6;animation:pf .6s ease-out forwards}
+@keyframes pf{to{transform:translate(var(--dx),var(--dy)) rotate(240deg);opacity:0}}
+.side{position:fixed;left:0;z-index:20;background:linear-gradient(#c58a45,#8a5a2b);color:#fff3d6;border:2px solid #4a2d10;border-left:0;border-radius:0 14px 14px 0;padding:9px 11px;font:700 12px Georgia,serif;cursor:pointer;box-shadow:2px 3px 0 #3a210a;text-align:left;max-width:128px;line-height:1.2}
+.side span{display:block;font-size:20px}
+#badge{position:absolute;top:-8px;right:-8px;background:var(--bad);color:#fff;border-radius:12px;min-width:22px;padding:1px 6px;font-size:12px;text-align:center}
+#hud{position:fixed;right:8px;top:calc(8px + env(safe-area-inset-top,0px));z-index:20;background:var(--card);color:var(--ink);border:3px solid #4a2d10;border-radius:12px;padding:6px 10px;font-weight:700;font-size:13px;min-width:165px}
+#hud .bar{margin-top:3px;height:8px}
+#banner{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:40;background:#ffd24a;color:#3b2410;border:3px solid #4a2d10;border-radius:12px;padding:8px 14px;font-weight:700;display:none;max-width:75vw;text-align:center;box-shadow:0 4px 12px #0006}
+#toast{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:8px 15px;border-radius:20px;z-index:60;display:none;font:14px system-ui}
+#modal{position:fixed;inset:0;background:#0008;z-index:30;display:none;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+#modal.on{display:flex}#modal.l{justify-content:flex-start}
+.box{position:relative;background:var(--card);color:var(--ink);border:4px solid #4a2d10;border-radius:16px;width:min(94vw,660px);max-height:88dvh;overflow:auto;padding:14px 16px;font:15px/1.45 system-ui,sans-serif}
+#modal.l .box{border-radius:0 16px 16px 0;width:min(94vw,420px);max-height:100%;height:100%}
+.x{position:sticky;float:right;top:0;background:var(--bad);color:#fff;border:0;border-radius:8px;width:32px;height:32px;font-size:16px;cursor:pointer;z-index:5}
+input,select,textarea{font:inherit;color:inherit;background:#7f7f7f20;border:1px solid var(--wood);border-radius:8px;padding:6px 8px;max-width:100%}
+textarea{width:100%;min-height:145px}
+.b{background:var(--acc);color:#2b1a05;border:0;border-radius:9px;padding:7px 12px;font:700 13px system-ui;cursor:pointer}.b.s{background:var(--wood);color:#fff}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.bar{height:12px;background:#7f7f7f40;border-radius:8px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ok)}
+.card{background:#7f7f7f1a;border-radius:10px;padding:9px 11px;margin:8px 0}
+h3{margin:.2em 0 .4em;font-family:Georgia,serif}.mut{color:var(--mut);font-size:13px}
+@media (prefers-reduced-motion:reduce){.walk #hi{animation:none}}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><img id="isl" alt="Isometric island map" src="island.jpeg"><div id="hero"><div id="hf"><img id="hi" alt="Explorer hero" style="visibility:hidden"></div></div></div></div>
 <div id="hud"></div>
-<button class="side" id="bMat" style="top:26%"><span>📚</span>Course Materials</button>
-<button class="side" id="bTodo" style="top:42%"><span>✅</span>Today’s To-Do<b id="badge"></b></button>
-<button class="side" id="bAbout" style="top:58%"><span>ℹ️</span>About App</button>
+<button class="side" id="bMat" style="top:24%"><span>📚</span>Course Materials</button>
+<button class="side" id="bTodo" style="top:40%"><span>✅</span>Today’s To-Do<b id="badge"></b></button>
+<button class="side" id="bAbout" style="top:56%"><span>ℹ️</span>About App</button>
 <div id="banner"></div><div id="toast"></div>
 <div id="modal"><div class="box"><button class="x" data-close aria-label="Close">✕</button><div id="mb"></div></div></div>
 <script>
@@ -9,7 +59,7 @@ const $=s=>document.querySelector(s),E=s=>String(s).replace(/[&<>"]/g,c=>({'&':'
 const K='ielts_island_v2',today=()=>new Date().toISOString().slice(0,10),roundBand=x=>Math.round(x*2)/2;
 let S={name:'George Samir Lamee',target:8,xp:0,todo:[],mats:[],links:[],exams:[],vault:[],draft:'',wType:'t2_disc',done:{},chest:'',spk:[],trk:{Listening:0,Reading:0,Writing:0,Speaking:0}};
 try{Object.assign(S,JSON.parse(localStorage.getItem(K)||localStorage.getItem('ielts_island_v1')||'{}'))}catch(e){}
-const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){toast('Storage notice: large files saved in app DB')}};
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){toast('Large files are stored safely in app DB')}};
 
 /* ---- IndexedDB for reliable Android file uploads ---- */
 const idb=()=>new Promise((res,rej)=>{const r=indexedDB.open('ielts_island_files',1);r.onupgradeneeded=()=>r.result.createObjectStore('files');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
@@ -65,7 +115,7 @@ const tabs=(cat,pLabel='🎯 Practice & Evaluate')=>`<div class=mut style="margi
 <button class="b ${tab==='prac'?'':'s'}" data-a=tab data-t=prac>${pLabel}</button>
 </div>`;
 
-/* ---- Rich Study Material & Grammar Reference per Category ---- */
+/* ---- Study Material & Grammar Reference per Category ---- */
 const STUDY={
   Listening:`<div class=card><b>1. Distractor Trap Strategy (Dr. Mohamed Khalil)</b><br>Speakers frequently correct themselves mid-sentence using contrast markers: <i>“Actually,” “Having said that,” “Sorry, I meant…”</i> Always wait for the final confirmed detail before locking your answer.</div>
   <div class=card><b>2. Prediction & Word-Form Check</b><br>During the 30-second preview, underline keywords and predict whether the gap needs a <b>noun, verb, number, or adjective</b>. Respect the word limit strictly (e.g., <i>NO MORE THAN TWO WORDS</i>).</div>
@@ -147,7 +197,6 @@ H.evalW=()=>{
   const linkers=(txt.match(/\b(however|moreover|furthermore|consequently|therefore|nevertheless|although|whereas|in addition|on the other hand|for instance|for example|in conclusion|to begin with|first and foremost)\b/gi)||[]);
   const complex=(txt.match(/\b(which|that|who|although|whereas|because|since|while|if|unless|thereby|despite)\b/gi)||[]).length;
 
-  // Scores
   let ta=w<curT.min*0.5?4.5:w<curT.min*0.8?5.5:w<curT.min?6.5:7.5; if(paras>=4&&w>=curT.min)ta+=0.5;
   let cc=paras<2?5:paras===2?6:paras===3?6.5:7; if(linkers.length>=3)cc+=0.5; if(linkers.length>=5)cc+=0.5;
   let lr=w<60?5:lexPct>=62?8:lexPct>=54?7.5:lexPct>=46?6.5:6;
@@ -156,7 +205,6 @@ H.evalW=()=>{
   ta=cl(ta);cc=cl(cc);lr=cl(lr);gr=cl(gr);
   const ov=roundBand((ta+cc+lr+gr)/4);
 
-  // Concrete Correction Suggestions
   const fixes=[];
   const upgrades=[
     [/\bvery good\b/gi,'“very good” → replace with <b>exemplary / highly beneficial / advantageous</b>'],
@@ -210,7 +258,7 @@ R.Writing=()=>{const curT=WT[S.wType]||WT.t2_disc;let body='';
   if(tab==='prac')wc();
 };
 
-/* ---- Speaking (With Dedicated IELTS Criteria Evaluation Button) ---- */
+/* ---- Speaking ---- */
 const SP=['Describe a place you visited that left a strong impression on you. Say where it was, when you went, what you did, and why it was memorable.','Describe a skill you would like to learn. Say what it is, why you want to learn it, and how you would go about it.','Describe a person who has influenced you. Say who they are, how you know them, and what they taught you.'];
 let mr,chunks=[],rec,t0,tint,finalT='',confs=[],strm,B={f:6.5,l:6.5,g:6.5,p:6.5},M=null,qi=0,lastDur=0;
 const NM={f:'Fluency & Coherence',l:'Lexical Resource',g:'Grammatical Range & Accuracy',p:'Pronunciation'};
@@ -222,7 +270,7 @@ function drawEval(){
   if(B.g<7.5)tips.push('<b>Grammar:</b> Mix Past Simple with Past Continuous and Past Perfect, plus at least one conditional sentence.');
   if(B.p<7.5)tips.push('<b>Pronunciation:</b> Stress key content words and pause briefly between clauses rather than rushing.');
   if(!tips.length)tips.push('✅ Band 8+ performance across all four IELTS Speaking criteria!');
-  $('#ev').innerHTML=(M?`<div class=card style="border:2px solid var(--ok)"><b>👨‍🏫 Dr. Mohamed Khalil’s IELTS Speaking Evaluation · Overall Band: <span style="font-size:18px;color:var(--ok)">${ov.toFixed(1)}</span></b><div class=mut style="margin-top:4px">Duration: ${M.d}s · Words captured: ${M.w} · Pace: ${M.wpm} WPM · Lexical variety: ${M.v}% · Connectors: ${M.c}</div><ul style="margin:6px 0 0 18px;padding:0">${tips.map(x=>`<li>${x}</li>`).join('')}</ul></div>`:'<div class=mut>Record your answer (or type notes below) and tap <b>📊 Evaluate IELTS Speaking</b>.</div>')+Object.keys(NM).map(k=>`<div class=row><span style="flex:1">${NM[k]}</span><button class="b s" data-a=bd data-k=${k} data-v=-.5>−</button><b>${B[k].toFixed(1)}</b><button class="b s" data-a=bd data-k=${k} data-v=.5>+</button></div>`).join('')+`<div class=card><b>Overall Speaking Band: ${ov.toFixed(1)}</b> <button class=b data-a=saveS>Save Score (+25 XP)</button></div>`;
+  $('#ev').innerHTML=(M?`<div class=card style="border:2px solid var(--ok)"><b>👨‍🏫 Dr. Mohamed Khalil’s IELTS Speaking Evaluation · Overall Band: <span style="font-size:18px;color:var(--ok)">${ov.toFixed(1)}</span></b><div class=mut style="margin-top:4px">Duration: ${M.d}s · Words captured: ${M.w} · Pace: ${M.wpm} WPM · Lexical variety: ${M.v}% · Connectors: ${M.c}</div><ul style="margin:6px 0 0 18px;padding:0">${tips.map(x=>`<li>${x}</li>`).join('')}</ul></div>`:'<div class=mut>Record your answer (or type notes below) and tap <b>📊 Evaluate Speaking</b>.</div>')+Object.keys(NM).map(k=>`<div class=row><span style="flex:1">${NM[k]}</span><button class="b s" data-a=bd data-k=${k} data-v=-.5>−</button><b>${B[k].toFixed(1)}</b><button class="b s" data-a=bd data-k=${k} data-v=.5>+</button></div>`).join('')+`<div class=card><b>Overall Speaking Band: ${ov.toFixed(1)}</b> <button class=b data-a=saveS>Save Score (+25 XP)</button></div>`;
 }
 H.bd=t=>{B[t.dataset.k]=Math.min(9,Math.max(0,B[t.dataset.k]+ +t.dataset.v));drawEval()};
 H.saveS=()=>{S.spk.push({d:today(),b:roundBand((B.f+B.l+B.g+B.p)/4)});save();gain(25,'Speaking')};
@@ -249,7 +297,6 @@ function diag(d,customText){
     g=w<30?5.5:sub>=6?8:sub>=4?7:sub>=2?6.5:5.5;
     p=!cf?7:cf>=.9?8:cf>=.8?7.5:cf>=.65?6.5:6;
   }else{
-    // Audio recorded on Android WebView without SpeechRecognition API: evaluate by speaking duration stamina
     f=d<15?5:d<30?6:d<50?7:7.5;l=6.5;g=6.5;p=7;
   }
   const cl=x=>Math.min(9,Math.max(4,roundBand(x)));
@@ -262,7 +309,7 @@ chunks=[];finalT='';confs=[];$('#tr').textContent='Listening… speak clearly in
 mr.onstop=()=>{lastDur=(Date.now()-t0)/1000;const a=$('#pl');if(a){a.src=URL.createObjectURL(new Blob(chunks,{type:mr.mimeType}));a.hidden=false}strm.getTracks().forEach(t=>t.stop());toast('Recording saved! Tap Evaluate Speaking')};
 t0=Date.now();mr.start();$('#rb').textContent='⏹ Stop recording';$('#pl').hidden=true;tint=setInterval(()=>{const s=Math.floor((Date.now()-t0)/1000);$('#tm').textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')},250);
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-if(SR){rec=new SR();rec.lang='en-GB';rec.continuous=true;rec.interimResults=true;rec.onresult=e=>{let i='';for(let k=e.resultIndex;k<e.results.length;k++){const r=e.results[k];if(r.isFinal){finalT+=r[0].transcript+' ';confs.push(r[0].confidence)}else i+=r[0].transcript}$('#tr').textContent=finalT+i};rec.onend=()=>{if(mr&&mr.state==='recording')try{rec.start()}catch(e){}};try{rec.start()}catch(e){}}else $('#tr').textContent='Audio recording active! (If Android WebView hides live text, you can also type/paste keywords below before tapping Evaluate.)'};
+if(SR){rec=new SR();rec.lang='en-GB';rec.continuous=true;rec.interimResults=true;rec.onresult=e=>{let i='';for(let k=e.resultIndex;k<e.results.length;k++){const r=e.results[k];if(r.isFinal){finalT+=r[0].transcript+' ';confs.push(r[0].confidence)}else i+=r[0].transcript}$('#tr').textContent=finalT+i};rec.onend=()=>{if(mr&&mr.state==='recording')try{rec.start()}catch(e){}};try{rec.start()}catch(e){}}else $('#tr').textContent='Audio recording active! Type/paste your spoken notes below before tapping Evaluate.'};
 
 R.Speaking=()=>{M=null;let body='';
   if(tab==='study')body=STUDY.Speaking+`<div class=row><button class=b data-a=tab data-t=prac>Open Speaking Recorder →</button></div>`;
@@ -315,7 +362,7 @@ R.About=()=>show(`<h3>ℹ️ About IELTS Island</h3>
 <li>Offline Course Material Library & Daily Study Planner</li>
 </ul></div>`);
 
-/* ---- Course materials (Fixed Android WebView File Picker + IndexedDB) & To-Do ---- */
+/* ---- Course materials & To-Do ---- */
 H.pickM=()=>{const inp=$('#mf');if(inp){inp.value='';inp.click()}};
 H.onPick=()=>{const fs=[...($('#mf')?.files||[])];if($('#mfLbl'))$('#mfLbl').textContent=fs.length?fs.map(f=>f.name).join(', '):'No file selected yet'};
 H.addM=async()=>{const fs=[...($('#mf')?.files||[])],tr=$('#mt').value,nt=$('#mn').value.trim();if(!fs.length&&!nt)return toast('Choose a file or write a study note');
@@ -349,3 +396,10 @@ R.Todo=()=>{const l=S.todo.filter(t=>t.date===today());show(`<h3 style="clear:no
 /* ---- reminders ---- */
 function remind(){const p=pend(),b=$('#banner');hud();if(!p.length){b.style.display='none';return}b.innerHTML=`⏰ ${p.length} study task${p.length>1?'s':''} pending: ${E(p.slice(0,2).map(t=>t.t).join(', '))}${p.length>2?'…':''}<br><button class=b onclick="open(R.Todo,1)">Open To-Do</button>`;b.style.display='block';chime()}
 setInterval(remind,60000);setTimeout(remind,6000);
+
+/* ---- boot ---- */
+hud();
+cutout("hero.jpeg").then(u=>{$('#hi').src=u;$('#hi').style.visibility='visible'});
+</script>
+</body>
+</html>
