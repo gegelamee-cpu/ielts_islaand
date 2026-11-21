@@ -33,8 +33,8 @@ body{background:#0b5f87;font-family:Georgia,"Palatino Linotype",serif;color:var(
 #toast{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:8px 15px;border-radius:20px;z-index:60;display:none;font:14px system-ui}
 #modal{position:fixed;inset:0;background:#0008;z-index:30;display:none;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
 #modal.on{display:flex}#modal.l{justify-content:flex-start}
-.box{position:relative;background:var(--card);color:var(--ink);border:4px solid #4a2d10;border-radius:16px;width:min(94vw,660px);max-height:88dvh;overflow:auto;padding:14px 16px;font:15px/1.45 system-ui,sans-serif}
-#modal.l .box{border-radius:0 16px 16px 0;width:min(94vw,420px);max-height:100%;height:100%}
+.box{position:relative;background:var(--card);color:var(--ink);border:4px solid #4a2d10;border-radius:16px;width:min(95vw,680px);max-height:90dvh;overflow:auto;padding:14px 16px;font:15px/1.45 system-ui,sans-serif}
+#modal.l .box{border-radius:0 16px 16px 0;width:min(95vw,450px);max-height:100%;height:100%}
 .x{position:sticky;float:right;top:0;background:var(--bad);color:#fff;border:0;border-radius:8px;width:32px;height:32px;font-size:16px;cursor:pointer;z-index:5}
 input,select,textarea{font:inherit;color:inherit;background:#7f7f7f20;border:1px solid var(--wood);border-radius:8px;padding:6px 8px;max-width:100%}
 textarea{width:100%;min-height:145px}
@@ -43,6 +43,7 @@ textarea{width:100%;min-height:145px}
 .bar{height:12px;background:#7f7f7f40;border-radius:8px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ok)}
 .card{background:#7f7f7f1a;border-radius:10px;padding:9px 11px;margin:8px 0}
 h3{margin:.2em 0 .4em;font-family:Georgia,serif}.mut{color:var(--mut);font-size:13px}
+iframe.docv{width:100%;height:62vh;border:2px solid var(--wood);border-radius:8px;background:#fff;margin-top:6px}
 @media (prefers-reduced-motion:reduce){.walk #hi{animation:none}}
 </style>
 </head>
@@ -56,16 +57,43 @@ h3{margin:.2em 0 .4em;font-family:Georgia,serif}.mut{color:var(--mut);font-size:
 <div id="modal"><div class="box"><button class="x" data-close aria-label="Close">✕</button><div id="mb"></div></div></div>
 <script>
 const $=s=>document.querySelector(s),E=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])),sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const K='ielts_island_v2',today=()=>new Date().toISOString().slice(0,10),roundBand=x=>Math.round(x*2)/2;
-let S={name:'George Samir Lamee',target:8,xp:0,todo:[],mats:[],links:[],exams:[],vault:[],draft:'',wType:'t2_disc',done:{},chest:'',spk:[],trk:{Listening:0,Reading:0,Writing:0,Speaking:0}};
-try{Object.assign(S,JSON.parse(localStorage.getItem(K)||localStorage.getItem('ielts_island_v1')||'{}'))}catch(e){}
-const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){toast('Large files are stored safely in app DB')}};
+const K='ielts_island_v4',today=()=>new Date().toISOString().slice(0,10),roundBand=x=>Math.round(x*2)/2;
+let S={name:'George Samir Lamee',target:8,apiKey:'',xp:0,todo:[],mats:[],ytLinks:[],exams:[],vault:[],draft:'',wType:'t2_disc',done:{},chest:'',spk:[],trk:{Listening:0,Reading:0,Writing:0,Speaking:0}};
+try{Object.assign(S,JSON.parse(localStorage.getItem(K)||localStorage.getItem('ielts_island_v3')||localStorage.getItem('ielts_island_v2')||'{}'))}catch(e){}
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){toast('Saved in app database')}};
 
-/* ---- IndexedDB for reliable Android file uploads ---- */
+/* ---- IndexedDB for offline Android PDF / Image / Doc viewing ---- */
 const idb=()=>new Promise((res,rej)=>{const r=indexedDB.open('ielts_island_files',1);r.onupgradeneeded=()=>r.result.createObjectStore('files');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
 async function putFile(id,blob){try{const db=await idb();return new Promise((res,rej)=>{const tx=db.transaction('files','readwrite');tx.objectStore('files').put(blob,String(id));tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}catch(e){}}
 async function getFile(id){try{const db=await idb();return new Promise((res,rej)=>{const tx=db.transaction('files','readonly');const rq=tx.objectStore('files').get(String(id));rq.onsuccess=()=>res(rq.result);rq.onerror=()=>rej(rq.error)})}catch(e){return null}}
 async function delFile(id){try{const db=await idb();const tx=db.transaction('files','readwrite');tx.objectStore('files').delete(String(id))}catch(e){}}
+const toDataURL=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b)});
+
+/* ---- Real Gemini Multimodal AI Evaluator (Free Tier) ---- */
+async function askGemini(parts){
+  const key=(S.apiKey||'').trim();
+  if(!key)throw new Error('NO_KEY');
+  const models=['gemini-3.8-flash','gemini-3.5-flash-lite'];
+  let lastErr='';
+  for(const m of models){
+    const url=`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(key)}`;
+    const res=await fetch(url,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        contents:[{parts}],
+        generationConfig:{temperature:0.2,responseMimeType:'application/json'}
+      })
+    });
+    if(res.ok){
+      const data=await res.json();
+      const raw=data?.candidates?.[0]?.content?.parts?.[0]?.text||'{}';
+      return JSON.parse(raw);
+    }
+    lastErr='API '+res.status+': '+(await res.text()).slice(0,140);
+  }
+  throw new Error(lastErr);
+}
 
 function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',2400)}
 function gain(xp,trk){S.xp+=xp;if(trk&&S.trk[trk]!=null)S.trk[trk]=Math.min(100,S.trk[trk]+10);save();hud();toast('+'+xp+' XP')}
@@ -110,28 +138,107 @@ const H={},R={};
 H.tab=t=>{tab=t.dataset.t;refresh()};
 const tabs=(cat,pLabel='🎯 Practice & Evaluate')=>`<div class=mut style="margin-bottom:6px">👨‍🏫 Tutor: <b>Dr. Mohamed Khalil</b> · Target: Band <b>${S.target}</b></div>
 <div class=row style="border-bottom:2px solid var(--wood);padding-bottom:8px">
-<button class="b ${tab==='study'?'':'s'}" data-a=tab data-t=study>📚 Study Material</button>
+<button class="b ${tab==='study'?'':'s'}" data-a=tab data-t=study>📚 Course Material & Videos</button>
 <button class="b ${tab==='gram'?'':'s'}" data-a=tab data-t=gram>📖 Grammar Reference</button>
 <button class="b ${tab==='prac'?'':'s'}" data-a=tab data-t=prac>${pLabel}</button>
 </div>`;
 
-/* ---- Study Material & Grammar Reference per Category ---- */
-const STUDY={
-  Listening:`<div class=card><b>1. Distractor Trap Strategy (Dr. Mohamed Khalil)</b><br>Speakers frequently correct themselves mid-sentence using contrast markers: <i>“Actually,” “Having said that,” “Sorry, I meant…”</i> Always wait for the final confirmed detail before locking your answer.</div>
-  <div class=card><b>2. Prediction & Word-Form Check</b><br>During the 30-second preview, underline keywords and predict whether the gap needs a <b>noun, verb, number, or adjective</b>. Respect the word limit strictly (e.g., <i>NO MORE THAN TWO WORDS</i>).</div>
-  <div class=card><b>3. Map & Diagram Labelling</b><br>Anchor yourself at the <b>“You are here”</b> entrance first. Track compass bearings (North/South) and relative prepositions (<i>adjacent to, opposite, just past</i>).</div>`,
-  Reading:`<div class=card><b>1. True / False / Not Given Golden Rule</b><br>• <b>TRUE:</b> The statement agrees with the text via synonyms.<br>• <b>FALSE:</b> The text states the <i>exact opposite</i>.<br>• <b>NOT GIVEN:</b> The text neither confirms nor denies it—never use outside knowledge!</div>
-  <div class=card><b>2. Matching Headings Workflow</b><br>Read the <b>first and last sentence</b> of each paragraph to capture the topic sentence and conclusion before reading the heading options. Cross out used headings immediately.</div>
-  <div class=card><b>3. Parallel Paraphrasing</b><br>IELTS Reading rarely repeats exact words from the question. Train your eye to match concepts: <i>“rapid expansion” → “grown rapidly”</i>, <i>“prohibited” → “not permitted”</i>.</div>`,
-  Writing:`<div class=card><b>1. General Training Task 1 (150+ words · 20 mins)</b><br>• <b>Formal (To Sir/Madam):</b> No contractions (write <i>I am</i>, not <i>I'm</i>). Close with <i>Yours faithfully</i>.<br>• <b>Semi-Formal (Manager/Colleague/Landlord):</b> Polite, clear tone. Close with <i>Yours sincerely</i>.<br>• <b>Informal (Friend):</b> Warm tone, natural idioms, contractions allowed. Close with <i>Best wishes / Warm regards</i>.</div>
-  <div class=card><b>2. Task 2 Band 8 Blueprint (250+ words · 40 mins)</b><br>• <b>Intro (40–50w):</b> Paraphrase prompt + clear thesis.<br>• <b>Body 1 (90–100w):</b> Topic sentence → Explanation → Specific example → Link.<br>• <b>Body 2 (90–100w):</b> Second perspective / Rebuttal → Explanation → Example.<br>• <b>Conclusion (35–45w):</b> Restate position clearly without introducing new ideas.</div>`,
-  Speaking:`<div class=card><b>1. Part 1 (4–5 mins): Extend Every Answer</b><br>Never give one-word answers. Use the <b>A-R-E Formula</b>: <b>A</b>nswer directly + <b>R</b>eason + <b>E</b>xample (2–3 sentences per question).</div>
-  <div class=card><b>2. Part 2 Cue Card (2 mins): PPF Structure</b><br>Organize your 1-minute notes into <b>Past</b> (background), <b>Present</b> (what happened / details), and <b>Future</b> (how it changed you or future plans) so you never run out of ideas before 2 minutes.</div>
-  <div class=card><b>3. Part 3 Discussion: Buy Thinking Time Naturally</b><br>Use Band 8 openers instead of “uh/um”: <i>“That’s an intriguing question; from my perspective…”</i> or <i>“It largely depends on the context, though generally speaking…”</i></div>`,
-  Idioms:`<div class=card><b>1. How to Use Idioms for Band 8+</b><br>Idioms boost <b>Lexical Resource</b> primarily in <b>Speaking</b> and <b>Informal Letters</b>. Avoid heavy slang in Academic/Task 2 essays—use formal collocations there instead (e.g., <i>mitigate the impact, paramount importance</i>).</div>
-  <div class=card><b>2. Precision Over Quantity</b><br>Using 2–3 natural idioms accurately is far better than forcing 10 idioms unnaturally. Practice placing each new vault item into a sentence about your own work or daily life.</div>`
+/* ---- Universal In-App Document Viewer (Works offline inside Android WebView) ---- */
+async function viewMaterial(id,targetEl){
+  const m=S.mats.find(x=>String(x.id)===String(id));
+  if(!m)return;
+  const box=$(targetEl);
+  if(!m.hasFile){
+    box.innerHTML=`<div class=card style="border:2px solid var(--wood)"><b>${E(m.n)}</b><p>${E(m.nt||'')}</p><button class="b s" onclick="this.parentElement.remove()">Close Viewer</button></div>`;
+    return;
+  }
+  box.innerHTML=`<div class=card>Loading <b>${E(m.n)}</b>…</div>`;
+  const blob=await getFile(m.id);
+  if(!blob){box.innerHTML='';return toast('File data not found in storage')}
+  const lower=m.n.toLowerCase();
+  const isPdf=(m.type==='application/pdf')||lower.endsWith('.pdf');
+  const isImg=(m.type||'').startsWith('image/')||/\.(png|jpe?g|gif|webp)$/i.test(lower);
+  const isTxt=(m.type||'').startsWith('text/')||/\.(txt|md|csv|json)$/i.test(lower);
+
+  if(isPdf){
+    const dataUrl=await toDataURL(blob);
+    box.innerHTML=`<div class=card style="border:2px solid var(--wood)">
+      <div class=row style="justify-content:space-between"><b>📄 ${E(m.n)}</b><button class="b s" onclick="this.closest('.card').remove()">✕ Close PDF</button></div>
+      <iframe class="docv" src="${dataUrl}"></iframe>
+    </div>`;
+  }else if(isImg){
+    const dataUrl=await toDataURL(blob);
+    box.innerHTML=`<div class=card style="border:2px solid var(--wood)">
+      <div class=row style="justify-content:space-between"><b>🖼️ ${E(m.n)}</b><button class="b s" onclick="this.closest('.card').remove()">✕ Close Image</button></div>
+      <img src="${dataUrl}" style="max-width:100%;border-radius:8px;margin-top:6px">
+    </div>`;
+  }else if(isTxt){
+    const txt=await blob.text();
+    box.innerHTML=`<div class=card style="border:2px solid var(--wood)">
+      <div class=row style="justify-content:space-between"><b>📝 ${E(m.n)}</b><button class="b s" onclick="this.closest('.card').remove()">✕ Close</button></div>
+      <pre style="white-space:pre-wrap;font:13px system-ui;margin-top:6px">${E(txt)}</pre>
+    </div>`;
+  }else{
+    box.innerHTML=`<div class=card style="border:2px solid var(--wood)">
+      <b>📎 ${E(m.n)}</b><p class=mut>Note: ${E(m.nt||'No summary note')}</p>
+      <p class=mut>Tip: Convert .docx files to PDF before uploading so they render directly inside the app screen on Android.</p>
+      <button class="b s" onclick="this.closest('.card').remove()">Close</button>
+    </div>`;
+  }
+}
+H.openById=t=>viewMaterial(t.dataset.id,t.dataset.box||'#secView');
+
+/* ---- Course-Only Materials + YouTube Course Videos Renderer per Category ---- */
+H.addSecYT=t=>{
+  const cat=t.dataset.cat;
+  const title=($('#ytTitle_'+cat)?.value||'').trim();
+  let url=($('#ytUrl_'+cat)?.value||'').trim();
+  if(!url)return toast('Paste a YouTube link first');
+  if(!/^https?:\/\//i.test(url))url='https://'+url;
+  S.ytLinks.push({id:Date.now(),cat,t:title||url,u:url});
+  save();toast('Course video added!');refresh();
+};
+H.delSecYT=t=>{
+  S.ytLinks=S.ytLinks.filter(x=>String(x.id)!==String(t.dataset.id));
+  save();refresh();
 };
 
+function renderCourseSection(cat){
+  const list=S.mats.filter(m=>m.tr===cat);
+  const vids=S.ytLinks.filter(v=>v.cat===cat);
+  const matHtml=list.length
+    ? list.map(m=>`<div class=card>
+        <b>📄 ${E(m.n)}</b>
+        ${m.nt?`<div class=mut style="margin-top:3px">${E(m.nt)}</div>`:''}
+        <div class=row><button class=b data-a=openById data-id="${m.id}" data-box="#secView_${cat}">👁️ Open Material</button></div>
+      </div>`).join('')
+    : `<div class=card style="border:1px dashed var(--wood);text-align:center;padding:14px">
+        <b>No material uploaded for ${cat} till now.</b>
+        <div class=mut style="margin-top:4px">Open <b>📚 Course Materials</b> on the left sidebar and upload your ${cat} PDF, image, or notes to display them here.</div>
+      </div>`;
+
+  const vidHtml=vids.length
+    ? vids.map(v=>`<div class=card style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <a href="${E(v.u)}" target="_blank" rel="noopener" style="font-weight:700;color:var(--ink)">▶ ${E(v.t)}</a>
+        <button class="b s" data-a=delSecYT data-id="${v.id}">✕</button>
+      </div>`).join('')
+    : `<div class=mut>No YouTube course videos added for ${cat} yet.</div>`;
+
+  return `<h4 style="margin:6px 0">📂 ${cat} Course Materials (Dr. Mohamed Khalil)</h4>
+    ${matHtml}
+    <div id="secView_${cat}"></div>
+    <h4 style="margin:12px 0 6px">🎬 ${cat} Course Channel Videos</h4>
+    <div class=card>
+      <div class=row>
+        <input id="ytTitle_${cat}" placeholder="Video title (e.g., Lesson 1)" style="flex:1;min-width:140px">
+        <input id="ytUrl_${cat}" placeholder="https://youtube.com/..." style="flex:1;min-width:160px">
+        <button class=b data-a=addSecYT data-cat="${cat}">+ Add Video</button>
+      </div>
+      ${vidHtml}
+    </div>`;
+}
+
+/* ---- Grammar Reference per Category ---- */
 const GRAM={
   Listening:`<div class=card><b>1. Passive Voice in Announcements & Lectures</b><br>Spoken prompts often use passives where questions use actives: <i>“Tickets <b>must be booked</b> in advance”</i> = <i>“You need to reserve tickets beforehand.”</i></div>
   <div class=card><b>2. Modal Verbs of Obligation & Permission</b><br>Listen carefully for <b>must / have to</b> (required), <b>needn't / don't have to</b> (optional), and <b>mustn't / prohibited</b> (not allowed).</div>
@@ -154,12 +261,10 @@ const LD=[{t:'Campus orientation',x:'Welcome to the university library. The stud
 H.say=t=>{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(LD[t.dataset.i].x);u.lang='en-GB';u.rate=+($('#rt').value||.9);const v=speechSynthesis.getVoices().find(v=>v.lang==='en-GB');if(v)u.voice=v;speechSynthesis.speak(u)};
 H.stop=()=>speechSynthesis.cancel();
 H.chkL=t=>{const i=t.dataset.i,v=$('#ans'+i).value.toLowerCase().replace(/[.\s]+/g,' ').trim(),ok=LD[i].a.some(a=>a.toLowerCase().replace(/[.\s]+/g,' ').trim()===v);$('#fb'+i).textContent=ok?'✅ Correct':'❌ Try again';if(ok&&!S.done['L'+i]){S.done['L'+i]=1;gain(10,'Listening')}};
-H.addYT=()=>{const u=$('#yu').value.trim();if(!/^https?:\/\//.test(u))return toast('Enter a full https:// link');S.links.push({t:$('#yt').value.trim()||u,u});save();refresh()};
-H.delYT=t=>{S.links.splice(t.dataset.i,1);save();refresh()};
 R.Listening=()=>{let body='';
-  if(tab==='study')body=STUDY.Listening+`<div class=row><button class=b data-a=tab data-t=prac>Start Listening Practice →</button></div>`;
+  if(tab==='study')body=renderCourseSection('Listening')+`<div class=row><button class=b data-a=tab data-t=prac>Start Listening Practice →</button></div>`;
   else if(tab==='gram')body=GRAM.Listening+`<div class=row><button class=b data-a=tab data-t=prac>Practice with These Rules →</button></div>`;
-  else body=`<label class=mut>Speed <input type=range id=rt min=.6 max=1.2 step=.1 value=.9></label>`+LD.map((d,i)=>`<div class=card><b>${d.t}</b><div class=row><button class=b data-a=say data-i=${i}>▶ Play</button><button class="b s" data-a=stop>■ Stop</button></div><details><summary class=mut>Show transcript</summary>${d.x}</details><div>${d.q}</div><div class=row><input id=ans${i} placeholder="Your answer"><button class="b s" data-a=chkL data-i=${i}>Check</button><span id=fb${i}>${S.done['L'+i]?'✅ Done':''}</span></div></div>`).join('')+`<h3>▶ YouTube link saver</h3><div class=row><input id=yt placeholder="Title"><input id=yu placeholder="https://youtube.com/…"><button class=b data-a=addYT>Save</button></div>`+S.links.map((l,i)=>`<div class=card><a href="${E(l.u)}" target=_blank rel=noopener>${E(l.t)}</a> <button class="b s" data-a=delYT data-i=${i}>✕</button></div>`).join('');
+  else body=`<label class=mut>Speed <input type=range id=rt min=.6 max=1.2 step=.1 value=.9></label>`+LD.map((d,i)=>`<div class=card><b>${d.t}</b><div class=row><button class=b data-a=say data-i=${i}>▶ Play</button><button class="b s" data-a=stop>■ Stop</button></div><details><summary class=mut>Show transcript</summary>${d.x}</details><div>${d.q}</div><div class=row><input id=ans${i} placeholder="Your answer"><button class="b s" data-a=chkL data-i=${i}>Check</button><span id=fb${i}>${S.done['L'+i]?'✅ Done':''}</span></div></div>`).join('');
   show(`<h3>🎧 Listening Lab</h3>${tabs('Listening')}${body}`)};
 
 /* ---- Reading ---- */
@@ -167,12 +272,12 @@ const RP='Urban beekeeping has grown rapidly in many cities over the past decade
 const RQ=[['Urban beekeeping has expanded quickly in recent years.','T'],['All ecologists support rooftop hives.','F'],['Most hobbyist beekeepers in the survey were formally trained.','F'],['City hives produce more honey than rural hives.','NG']];
 H.chkR=()=>{let n=0;RQ.forEach((q,i)=>{const ok=$('#r'+i).value===q[1];n+=ok;$('#rf'+i).textContent=ok?'✅':'❌ '+q[1]});$('#rs').textContent=`Score: ${n}/${RQ.length}`;if(n&&!S.done.R){S.done.R=1;gain(n*5,'Reading')}};
 R.Reading=()=>{let body='';
-  if(tab==='study')body=STUDY.Reading+`<div class=row><button class=b data-a=tab data-t=prac>Start Reading Practice →</button></div>`;
+  if(tab==='study')body=renderCourseSection('Reading')+`<div class=row><button class=b data-a=tab data-t=prac>Start Reading Practice →</button></div>`;
   else if(tab==='gram')body=GRAM.Reading+`<div class=row><button class=b data-a=tab data-t=prac>Apply Grammar in Reading →</button></div>`;
   else body=`<div class=card>${RP}</div>`+RQ.map((q,i)=>`<div class=row><span style="flex:1">${q[0]}</span><select id=r${i}><option value="">Select</option><option>T</option><option>F</option><option>NG</option></select><span id=rf${i}></span></div>`).join('')+`<div class=row><button class=b data-a=chkR>Check answers</button><b id=rs></b></div><p class=mut>T = True, F = False, NG = Not Given (the text does not say).</p>`;
   show(`<h3>📖 Reading Academy</h3>${tabs('Reading')}${body}`)};
 
-/* ---- Writing (Task 1 & Task 2 Choice + Evaluation & Correction Suggestions) ---- */
+/* ---- Writing (Task 1 & Task 2 Choice + Real Gemini AI Evaluation & Corrections) ---- */
 const WT={
   t1_formal:{name:'Task 1 · Formal Letter (150+ w)',min:150,prompt:'You recently purchased a piece of electronic equipment online, and it arrived damaged. Write a letter to the customer service manager. In your letter: (1) describe what you bought and the problem, (2) explain how this has inconvenienced you, and (3) state what action you would like the company to take.',tpl:{Opening:'Dear Sir or Madam,\n\nI am writing to express my dissatisfaction regarding [item] (Order #[number]), which I purchased from your website on [date] and received in a damaged condition.',Details:'Upon opening the package, I discovered that [describe defect]. As I rely on this device for [work/study purpose], this issue has caused significant inconvenience.',Action:'Given that the item is under warranty, I would appreciate it if you could arrange a prompt replacement or issue a full refund within seven working days.',Closing:'I look forward to your prompt response.\n\nYours faithfully,\nGeorge Samir Lamee'}},
   t1_semi:{name:'Task 1 · Semi-Formal Letter (150+ w)',min:150,prompt:'You are attending a training course and need to take two days off next week for an urgent family matter. Write a letter to your course tutor, Dr. Mohamed Khalil. In your letter: (1) explain why you need to be absent, (2) say how you will catch up on missed work, and (3) ask for any recommended study materials.',tpl:{Opening:'Dear Dr. Khalil,\n\nI am writing to inform you that I will unfortunately need to miss our sessions on [dates] due to an urgent family commitment.',CatchUp:'To ensure I do not fall behind, I have already arranged to review the lecture notes with a classmate and complete all assigned exercises over the weekend.',Request:'Could you please let me know if there are any additional readings or practice tasks I should prioritize during my absence?',Closing:'Thank you very much for your understanding and support.\n\nYours sincerely,\nGeorge Samir Lamee'}},
@@ -187,65 +292,57 @@ H.wType=t=>{S.wType=t.value;save();refresh()};
 H.tpl=t=>{const a=$('#wt'),curT=WT[S.wType]||WT.t2_disc;a.value+=(a.value?'\n\n':'')+curT.tpl[t.dataset.k];a.dispatchEvent(new Event('input',{bubbles:true}))};
 H.saveW=()=>{save();const curT=WT[S.wType]||WT.t2_disc,w=$('#wt').value.trim().split(/\s+/).length;if(w>=curT.min&&S.done['W'+today()]!==1){S.done['W'+today()]=1;gain(20,'Writing')}else toast('Draft saved')};
 
-H.evalW=()=>{
+H.evalW=async()=>{
   const txt=($('#wt')?.value||'').trim(),curT=WT[S.wType]||WT.t2_disc;
-  if(!txt)return toast('Write or insert a draft first to evaluate');
-  const words=txt.match(/[A-Za-z']+/g)||[],w=words.length;
-  const sents=txt.split(/[.!?]+/).map(s=>s.trim()).filter(Boolean);
-  const paras=txt.split(/\n\s*\n/).filter(x=>x.trim()).length;
-  const uniq=new Set(words.map(x=>x.toLowerCase())).size,lexPct=w?Math.round(uniq/w*100):0;
-  const linkers=(txt.match(/\b(however|moreover|furthermore|consequently|therefore|nevertheless|although|whereas|in addition|on the other hand|for instance|for example|in conclusion|to begin with|first and foremost)\b/gi)||[]);
-  const complex=(txt.match(/\b(which|that|who|although|whereas|because|since|while|if|unless|thereby|despite)\b/gi)||[]).length;
-
-  let ta=w<curT.min*0.5?4.5:w<curT.min*0.8?5.5:w<curT.min?6.5:7.5; if(paras>=4&&w>=curT.min)ta+=0.5;
-  let cc=paras<2?5:paras===2?6:paras===3?6.5:7; if(linkers.length>=3)cc+=0.5; if(linkers.length>=5)cc+=0.5;
-  let lr=w<60?5:lexPct>=62?8:lexPct>=54?7.5:lexPct>=46?6.5:6;
-  let gr=sents.length<3?5:complex/Math.max(1,sents.length)>=0.6?8:complex/Math.max(1,sents.length)>=0.35?7:6;
-  const cl=x=>Math.min(9,Math.max(4,roundBand(x)));
-  ta=cl(ta);cc=cl(cc);lr=cl(lr);gr=cl(gr);
-  const ov=roundBand((ta+cc+lr+gr)/4);
-
-  const fixes=[];
-  const upgrades=[
-    [/\bvery good\b/gi,'“very good” → replace with <b>exemplary / highly beneficial / advantageous</b>'],
-    [/\bvery bad\b/gi,'“very bad” → replace with <b>detrimental / adverse / severe</b>'],
-    [/\bvery important\b/gi,'“very important” → replace with <b>paramount / crucial / indispensable</b>'],
-    [/\ba lot of\b/gi,'“a lot of” → replace with <b>a substantial number of / considerable</b>'],
-    [/\bthings\b/gi,'“things” → replace with specific nouns like <b>factors / aspects / issues</b>'],
-    [/\bpeople think\b/gi,'“people think” → upgrade to <b>it is widely contended / many individuals maintain</b>'],
-    [/\bnowadays\b/gi,'“nowadays” → upgrade to <b>in contemporary society / in recent decades</b>'],
-    [/\bi think\b/gi,'“I think” → upgrade to <b>I firmly believe / from my perspective</b>']
-  ];
-  upgrades.forEach(([rx,msg])=>{if(rx.test(txt))fixes.push(msg)});
-  if(S.wType!=='t1_informal'&&/\b(don't|can't|won't|isn't|aren't|didn't|i'm|it's)\b/i.test(txt)){
-    fixes.push('<b>Avoid contractions</b> in Formal/Semi-Formal letters and Task 2 essays (write <i>do not, cannot, it is</i> instead of <i>don’t, can’t, it’s</i>).');
+  if(!txt)return toast('Write your letter or essay first');
+  if(!(S.apiKey||'').trim()){
+    $('#wev').innerHTML=`<div class=card style="border:2px solid var(--bad)"><b>🔑 Free Gemini API Key Needed</b><br>Open <b>Profile</b> on the island map and paste your free Google AI Studio key (<code>AIzaSy...</code>) for real IELTS Writing grading and corrections.</div>`;
+    return;
   }
-  if(/\bi\b/.test(txt))fixes.push('Capitalize the personal pronoun <b>“I”</b> everywhere in your text.');
-  sents.forEach(s=>{
-    if(s.split(/\s+/).length>34)fixes.push(`<b>Long sentence alert:</b> “${E(s.slice(0,55))}…” (${s.split(/\s+/).length} words) — split into two clear sentences or use a relative clause.`);
-    if(/^[a-z]/.test(s))fixes.push(`<b>Capitalization:</b> Start sentence “${E(s.slice(0,30))}…” with a capital letter.`);
-  });
-  if(w<curT.min)fixes.push(`<b>Word count penalty risk:</b> You wrote ${w} words; add ${curT.min-w} more words to reach the ${curT.min}-word minimum.`);
-  if(linkers.length<3)fixes.push('<b>Cohesion upgrade:</b> Add clear signposting transitions (e.g., <i>Furthermore, Consequently, On the other hand</i>) followed by a comma.');
-  if(!fixes.length)fixes.push('✅ Clean structure and strong academic register! Focus on adding specific real-world examples to push toward Band 8.5–9.0.');
-
-  $('#wev').innerHTML=`<div class=card style="border:2px solid var(--ok)">
-    <b>👨‍🏫 Dr. Mohamed Khalil’s Writing Evaluation · Estimated Band: <span style="font-size:18px;color:var(--ok)">${ov.toFixed(1)}</span></b>
-    <div class=row style="margin-top:6px">
-      <span>Task Achievement/Response: <b>${ta.toFixed(1)}</b></span> ·
-      <span>Coherence & Cohesion: <b>${cc.toFixed(1)}</b></span> ·
-      <span>Lexical Resource: <b>${lr.toFixed(1)}</b></span> ·
-      <span>Grammar: <b>${gr.toFixed(1)}</b></span>
-    </div>
-    <hr style="border:0;border-top:1px solid var(--wood);margin:8px 0">
-    <b>✏️ Correction & Band 8+ Upgrade Suggestions:</b>
-    <ul style="margin:6px 0 0 18px;padding:0">${fixes.map(f=>`<li style="margin:4px 0">${f}</li>`).join('')}</ul>
-  </div>`;
-  gain(10,'Writing');
+  $('#wev').innerHTML=`<div class=card>✍️ <b>Dr. Mohamed Khalil’s AI Examiner is grading your ${curT.name}…</b></div>`;
+  try{
+    const prompt=`You are Dr. Mohamed Khalil, a certified IELTS General Training Writing Examiner. Grade the candidate's response strictly according to official IELTS Writing Band Descriptors (0.0 to 9.0 in 0.5 increments).
+Task Type: ${curT.name} (Minimum ${curT.min} words)
+Prompt: "${curT.prompt}"
+Candidate Response:
+"""
+${txt}
+"""
+Return ONLY valid JSON:
+{
+  "taskAchievement": 6.5,
+  "coherenceCohesion": 6.5,
+  "lexicalResource": 6.5,
+  "grammarAccuracy": 6.5,
+  "overall": 6.5,
+  "corrections": ["Exact quote of grammar/spelling/tone error -> Corrected Band 8+ version (brief explanation)"],
+  "band8Rewrite": "An improved Band 8.5 version of the candidate's response preserving their core ideas"
+}`;
+    const r=await askGemini([{text:prompt}]);
+    const ta=+r.taskAchievement||0,cc=+r.coherenceCohesion||0,lr=+r.lexicalResource||0,gr=+r.grammarAccuracy||0;
+    const ov=roundBand(+r.overall||(ta+cc+lr+gr)/4);
+    $('#wev').innerHTML=`<div class=card style="border:2px solid var(--ok)">
+      <b>👨‍🏫 Dr. Mohamed Khalil’s Writing Evaluation · Band: <span style="font-size:19px;color:var(--ok)">${ov.toFixed(1)}</span></b>
+      <div class=row style="margin-top:6px">
+        <span>Task Achievement: <b>${ta.toFixed(1)}</b></span> ·
+        <span>Coherence: <b>${cc.toFixed(1)}</b></span> ·
+        <span>Lexical: <b>${lr.toFixed(1)}</b></span> ·
+        <span>Grammar: <b>${gr.toFixed(1)}</b></span>
+      </div>
+      <hr style="border:0;border-top:1px solid var(--wood);margin:8px 0">
+      <b>✏️ Grammar & Vocabulary Corrections:</b>
+      <ul style="margin:4px 0 8px 18px;padding:0">${(r.corrections||[]).map(x=>`<li style="margin:4px 0">${E(x)}</li>`).join('')}</ul>
+      <b>🌟 Band 8.5 Improved Version:</b>
+      <div class=mut style="white-space:pre-wrap;margin-top:4px">${E(r.band8Rewrite||'')}</div>
+    </div>`;
+    gain(15,'Writing');
+  }catch(err){
+    $('#wev').innerHTML=`<div class=card style="border:2px solid var(--bad)"><b>⚠️ Evaluation Error:</b> ${E(err.message)}</div>`;
+  }
 };
 
 R.Writing=()=>{const curT=WT[S.wType]||WT.t2_disc;let body='';
-  if(tab==='study')body=STUDY.Writing+`<div class=row><button class=b data-a=tab data-t=prac>Open Writing Studio →</button></div>`;
+  if(tab==='study')body=renderCourseSection('Writing')+`<div class=row><button class=b data-a=tab data-t=prac>Open Writing Studio →</button></div>`;
   else if(tab==='gram')body=GRAM.Writing+`<div class=row><button class=b data-a=tab data-t=prac>Practice Writing with Grammar →</button></div>`;
   else body=`<div class=row><label><b>Choose Writing Type:</b> <select onchange="H.wType(this)">${Object.keys(WT).map(k=>`<option value="${k}"${k===S.wType?' selected':''}>${WT[k].name}</option>`).join('')}</select></label></div>
   <div class=card><b>Prompt:</b> ${curT.prompt}</div>
@@ -258,70 +355,121 @@ R.Writing=()=>{const curT=WT[S.wType]||WT.t2_disc;let body='';
   if(tab==='prac')wc();
 };
 
-/* ---- Speaking ---- */
-const SP=['Describe a place you visited that left a strong impression on you. Say where it was, when you went, what you did, and why it was memorable.','Describe a skill you would like to learn. Say what it is, why you want to learn it, and how you would go about it.','Describe a person who has influenced you. Say who they are, how you know them, and what they taught you.'];
-let mr,chunks=[],rec,t0,tint,finalT='',confs=[],strm,B={f:6.5,l:6.5,g:6.5,p:6.5},M=null,qi=0,lastDur=0;
-const NM={f:'Fluency & Coherence',l:'Lexical Resource',g:'Grammatical Range & Accuracy',p:'Pronunciation'};
-function drawEval(){
-  const ov=roundBand((B.f+B.l+B.g+B.p)/4);
-  const tips=[];
-  if(B.f<7.5)tips.push('<b>Fluency:</b> Aim for 45–90 seconds with discourse markers (<i>Consequently, Having said that, To put it simply</i>).');
-  if(B.l<7.5)tips.push('<b>Lexical:</b> Swap basic adjectives for Band 8+ words (<i>memorable → unforgettable, important → paramount, helpful → instrumental</i>).');
-  if(B.g<7.5)tips.push('<b>Grammar:</b> Mix Past Simple with Past Continuous and Past Perfect, plus at least one conditional sentence.');
-  if(B.p<7.5)tips.push('<b>Pronunciation:</b> Stress key content words and pause briefly between clauses rather than rushing.');
-  if(!tips.length)tips.push('✅ Band 8+ performance across all four IELTS Speaking criteria!');
-  $('#ev').innerHTML=(M?`<div class=card style="border:2px solid var(--ok)"><b>👨‍🏫 Dr. Mohamed Khalil’s IELTS Speaking Evaluation · Overall Band: <span style="font-size:18px;color:var(--ok)">${ov.toFixed(1)}</span></b><div class=mut style="margin-top:4px">Duration: ${M.d}s · Words captured: ${M.w} · Pace: ${M.wpm} WPM · Lexical variety: ${M.v}% · Connectors: ${M.c}</div><ul style="margin:6px 0 0 18px;padding:0">${tips.map(x=>`<li>${x}</li>`).join('')}</ul></div>`:'<div class=mut>Record your answer (or type notes below) and tap <b>📊 Evaluate Speaking</b>.</div>')+Object.keys(NM).map(k=>`<div class=row><span style="flex:1">${NM[k]}</span><button class="b s" data-a=bd data-k=${k} data-v=-.5>−</button><b>${B[k].toFixed(1)}</b><button class="b s" data-a=bd data-k=${k} data-v=.5>+</button></div>`).join('')+`<div class=card><b>Overall Speaking Band: ${ov.toFixed(1)}</b> <button class=b data-a=saveS>Save Score (+25 XP)</button></div>`;
-}
-H.bd=t=>{B[t.dataset.k]=Math.min(9,Math.max(0,B[t.dataset.k]+ +t.dataset.v));drawEval()};
-H.saveS=()=>{S.spk.push({d:today(),b:roundBand((B.f+B.l+B.g+B.p)/4)});save();gain(25,'Speaking')};
+/* ---- Speaking (Real Audio AI Evaluation) ---- */
+const SP=[
+  'Describe a place you visited that left a strong impression on you. Say where it was, when you went, what you did, and why it was memorable.',
+  'Describe a skill you would like to learn. Say what it is, why you want to learn it, and how you would go about it.',
+  'Describe a person who has influenced you. Say who they are, how you know them, and what they taught you.'
+];
+let mr,chunks=[],lastBlob=null,t0,tint,strm,B={f:0,l:0,g:0,p:0},qi=0,lastDur=0;
+
 H.nq=()=>{qi=(qi+1)%SP.length;$('#cue').textContent=SP[qi]};
-H.evalS=()=>{
-  const manual=($('#spkTxt')?.value||'').trim();
-  const text=(finalT+' '+manual).trim();
-  const d=lastDur>0?lastDur:(text?Math.max(20,Math.round(text.split(/\s+/).length/2.1)):0);
-  if(!d&&!text)return toast('Record your voice or type your response first');
-  diag(d,text);toast('IELTS Speaking evaluated!');
+H.saveS=()=>{
+  const ov=roundBand((B.f+B.l+B.g+B.p)/4);
+  if(ov<=0)return toast('Record and evaluate a real response first');
+  S.spk.push({d:today(),b:ov});save();gain(25,'Speaking');
 };
-function diag(d,customText){
-  const txt=(customText!==undefined?customText:finalT).trim();
-  const ws=txt.toLowerCase().match(/[a-z']+/g)||[],w=ws.length,wpm=d>0&&w>0?Math.round(w/(d/60)):0,v=w?Math.round(new Set(ws).size/w*100):0;
-  const c=(txt.match(/\b(however|moreover|furthermore|although|whereas|therefore|consequently|in addition|on the other hand|for instance|as a result|nevertheless|actually|personally)\b/gi)||[]).length;
-  const sub=(txt.match(/\b(which|that|who|if|because|although|while|would|have been|had been)\b/gi)||[]).length/Math.max(1,w)*100;
-  const lg=ws.filter(x=>x.length>=8).length/Math.max(1,w);
-  const cf=confs.length?confs.reduce((a,b)=>a+b,0)/confs.length:0;
 
-  let f=6,l=6,g=6,p=6;
-  if(w>0){
-    f=wpm<80?5.5:wpm<105?6.5:wpm<135?7.5:wpm<190?8:7.5;if(c>=2)f+=.5;if(d<20)f=Math.min(f,5.5);
-    l=w<30?5.5:v>=68?8:v>=58?7.5:v>=48?6.5:6;if(lg>.08)l+=.5;
-    g=w<30?5.5:sub>=6?8:sub>=4?7:sub>=2?6.5:5.5;
-    p=!cf?7:cf>=.9?8:cf>=.8?7.5:cf>=.65?6.5:6;
-  }else{
-    f=d<15?5:d<30?6:d<50?7:7.5;l=6.5;g=6.5;p=7;
-  }
-  const cl=x=>Math.min(9,Math.max(4,roundBand(x)));
-  B={f:cl(f),l:cl(l),g:cl(g),p:cl(p)};M={d:Math.round(d),w,wpm:wpm||'Audio',v:v||'—',c};drawEval();
+function stopRec(){
+  clearInterval(tint);
+  if(mr&&mr.state==='recording')mr.stop();
+  const b=$('#rb');if(b)b.textContent='🎙 Start recording';
 }
-function stopRec(){clearInterval(tint);try{rec&&rec.stop()}catch(e){}if(mr&&mr.state==='recording')mr.stop();const b=$('#rb');if(b)b.textContent='🎙 Start recording'}
-H.rec=async()=>{if(mr&&mr.state==='recording')return stopRec();
-try{strm=await navigator.mediaDevices.getUserMedia({audio:true})}catch(e){return toast('Microphone blocked – allow access and retry')}
-chunks=[];finalT='';confs=[];$('#tr').textContent='Listening… speak clearly into your microphone.';mr=new MediaRecorder(strm);mr.ondataavailable=e=>chunks.push(e.data);
-mr.onstop=()=>{lastDur=(Date.now()-t0)/1000;const a=$('#pl');if(a){a.src=URL.createObjectURL(new Blob(chunks,{type:mr.mimeType}));a.hidden=false}strm.getTracks().forEach(t=>t.stop());toast('Recording saved! Tap Evaluate Speaking')};
-t0=Date.now();mr.start();$('#rb').textContent='⏹ Stop recording';$('#pl').hidden=true;tint=setInterval(()=>{const s=Math.floor((Date.now()-t0)/1000);$('#tm').textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')},250);
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-if(SR){rec=new SR();rec.lang='en-GB';rec.continuous=true;rec.interimResults=true;rec.onresult=e=>{let i='';for(let k=e.resultIndex;k<e.results.length;k++){const r=e.results[k];if(r.isFinal){finalT+=r[0].transcript+' ';confs.push(r[0].confidence)}else i+=r[0].transcript}$('#tr').textContent=finalT+i};rec.onend=()=>{if(mr&&mr.state==='recording')try{rec.start()}catch(e){}};try{rec.start()}catch(e){}}else $('#tr').textContent='Audio recording active! Type/paste your spoken notes below before tapping Evaluate.'};
 
-R.Speaking=()=>{M=null;let body='';
-  if(tab==='study')body=STUDY.Speaking+`<div class=row><button class=b data-a=tab data-t=prac>Open Speaking Recorder →</button></div>`;
+H.rec=async()=>{
+  if(mr&&mr.state==='recording')return stopRec();
+  try{strm=await navigator.mediaDevices.getUserMedia({audio:true})}
+  catch(e){return toast('Microphone blocked – allow access and retry')}
+  chunks=[];lastBlob=null;
+  mr=new MediaRecorder(strm);
+  mr.ondataavailable=e=>{if(e.data&&e.data.size>0)chunks.push(e.data)};
+  mr.onstop=()=>{
+    lastDur=(Date.now()-t0)/1000;
+    lastBlob=new Blob(chunks,{type:mr.mimeType||'audio/webm'});
+    const a=$('#pl');
+    if(a){a.src=URL.createObjectURL(lastBlob);a.hidden=false}
+    strm.getTracks().forEach(t=>t.stop());
+    toast('Audio captured ('+Math.round(lastDur)+'s). Tap Evaluate Speaking!');
+  };
+  t0=Date.now();mr.start();
+  $('#rb').textContent='⏹ Stop recording';$('#pl').hidden=true;
+  tint=setInterval(()=>{
+    const s=Math.floor((Date.now()-t0)/1000);
+    $('#tm').textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+  },250);
+};
+
+H.evalS=async()=>{
+  if(!lastBlob||lastBlob.size<1500||lastDur<1.5){
+    $('#ev').innerHTML=`<div class=card style="border:2px solid var(--bad)"><b>⚠️ No valid speech recorded</b><br>Your recording was too short or empty (${lastDur.toFixed(1)}s). Speak clearly for at least 15–60 seconds and try again.</div>`;
+    return;
+  }
+  if(!(S.apiKey||'').trim()){
+    $('#ev').innerHTML=`<div class=card style="border:2px solid var(--bad)"><b>🔑 Free Gemini API Key Needed</b><br>Open <b>Profile</b> on the island map and paste your free Google AI Studio key (<code>AIzaSy...</code>) so Dr. Mohamed Khalil’s AI can listen to your actual audio and score it accurately.</div>`;
+    return;
+  }
+  $('#ev').innerHTML=`<div class=card>🎧 <b>Dr. Mohamed Khalil’s AI Examiner is listening to your recording…</b></div>`;
+  try{
+    const dataUrl=await toDataURL(lastBlob);
+    const b64=dataUrl.split(',')[1];
+    const mime=(lastBlob.type||'audio/webm').split(';')[0];
+    const prompt=`You are Dr. Mohamed Khalil, a strict, certified IELTS Speaking Examiner. Listen carefully to the attached audio response to the IELTS cue card: "${SP[qi]}".
+CRITICAL RULES:
+- If the audio contains silence, breathing, background noise only, or fewer than 4 intelligible English words, set "speechDetected": false and all band scores to 0.
+- Do NOT invent or assume words that were not spoken. Transcribe verbatim what you actually hear.
+- Score strictly according to official IELTS Speaking Band Descriptors (0.0 to 9.0 in 0.5 increments).
+Return ONLY valid JSON with this exact structure:
+{
+  "speechDetected": true,
+  "transcript": "exact verbatim transcript of what the speaker said",
+  "fluency": 6.5,
+  "lexical": 6.5,
+  "grammar": 6.5,
+  "pronunciation": 6.5,
+  "overall": 6.5,
+  "strengths": ["specific strength observed in the audio"],
+  "corrections": ["exact mistake heard -> natural Band 8 correction"],
+  "band8Sample": "A natural Band 8.5 rewrite of the candidate's own ideas"
+}`;
+    const r=await askGemini([{text:prompt},{inlineData:{mimeType:mime,data:b64}}]);
+    if(!r.speechDetected||!r.transcript||r.transcript.trim().split(/\s+/).length<4){
+      B={f:0,l:0,g:0,p:0};
+      $('#ev').innerHTML=`<div class=card style="border:2px solid var(--bad)"><b>🔇 Silence / Unclear Audio Detected (Band 0.0)</b><br>No clear English speech was heard in the recording. Check your mic and speak clearly into the device.</div>`;
+      return;
+    }
+    $('#tr').textContent=r.transcript;
+    B={f:+r.fluency||0,l:+r.lexical||0,g:+r.grammar||0,p:+r.pronunciation||0};
+    const ov=roundBand(+r.overall||(B.f+B.l+B.g+B.p)/4);
+    $('#ev').innerHTML=`<div class=card style="border:2px solid var(--ok)">
+      <b>👨‍🏫 Dr. Mohamed Khalil’s Real Audio Evaluation · Overall Band: <span style="font-size:19px;color:var(--ok)">${ov.toFixed(1)}</span></b>
+      <div class=row style="margin-top:6px">
+        <span>Fluency: <b>${B.f.toFixed(1)}</b></span> ·
+        <span>Lexical: <b>${B.l.toFixed(1)}</b></span> ·
+        <span>Grammar: <b>${B.g.toFixed(1)}</b></span> ·
+        <span>Pronunciation: <b>${B.p.toFixed(1)}</b></span>
+      </div>
+      <hr style="border:0;border-top:1px solid var(--wood);margin:8px 0">
+      <b>✅ Strengths:</b><ul style="margin:4px 0 8px 18px;padding:0">${(r.strengths||[]).map(x=>`<li>${E(x)}</li>`).join('')}</ul>
+      <b>✏️ Corrections & Upgrades:</b><ul style="margin:4px 0 8px 18px;padding:0">${(r.corrections||[]).map(x=>`<li>${E(x)}</li>`).join('')}</ul>
+      <b>🌟 Band 8.5 Version of Your Answer:</b><div class=mut style="margin-top:4px;font-style:italic">“${E(r.band8Sample||'')}”</div>
+      <div class=row style="margin-top:8px"><button class=b data-a=saveS>Save Verified Score (+25 XP)</button></div>
+    </div>`;
+    toast('Real IELTS evaluation complete!');
+  }catch(err){
+    $('#ev').innerHTML=`<div class=card style="border:2px solid var(--bad)"><b>⚠️ Evaluation Error:</b> ${E(err.message)}<br><span class=mut>Verify your internet connection and Gemini API key in Profile.</span></div>`;
+  }
+};
+
+R.Speaking=()=>{let body='';
+  if(tab==='study')body=renderCourseSection('Speaking')+`<div class=row><button class=b data-a=tab data-t=prac>Open Speaking Recorder →</button></div>`;
   else if(tab==='gram')body=GRAM.Speaking+`<div class=row><button class=b data-a=tab data-t=prac>Practice Speaking with Grammar →</button></div>`;
   else body=`<div class=card id=cue>${SP[qi]}</div>
   <div class=row><button class=b id=rb data-a=rec>🎙 Start recording</button><b id=tm>00:00</b><button class="b s" data-a=nq>New cue card</button></div>
   <audio id=pl controls hidden style="width:100%;margin:6px 0"></audio>
-  <div class=card><b>Transcript / Spoken Notes</b><div id=tr class=mut>Your spoken words will appear here.</div><textarea id=spkTxt style="min-height:64px;margin-top:6px" placeholder="Optional: type or refine what you said for detailed vocabulary & grammar scoring…"></textarea></div>
-  <div class=row><button class=b data-a=evalS>📊 Evaluate Speaking (IELTS Criteria)</button></div>
+  <div class=card><b>Verbatim AI Transcript</b><div id=tr class=mut>Record your voice and tap Evaluate to hear & transcribe your exact words.</div></div>
+  <div class=row><button class=b data-a=evalS>📊 Evaluate Speaking (Real Audio AI)</button></div>
   <div id=ev></div>`;
   show(`<h3>🎤 Speaking Studio</h3>${tabs('Speaking','🎯 Record & Evaluate')}${body}`);
-  if(tab==='prac')drawEval();
 };
 
 /* ---- Exams ---- */
@@ -329,61 +477,96 @@ H.logE=()=>{const v=['eL','eR','eW','eS'].map(i=>+$('#'+i).value);if(v.some(x=>i
 H.delE=t=>{S.exams.splice(t.dataset.i,1);save();refresh()};
 R.Exams=()=>show(`<h3>🏟️ Mock Exam Arena</h3><div class=mut style="margin-bottom:6px">👨‍🏫 Supervised by <b>Dr. Mohamed Khalil</b> · Target: Band <b>${S.target}</b></div><div class=row>${['L','R','W','S'].map(k=>`<label>${k} <input id=e${k} type=number min=0 max=9 step=.5 style="width:64px"></label>`).join('')}<input id=ed type=date value="${today()}"><button class=b data-a=logE>Log test</button></div><p class=mut>Overall = average of four bands, rounded to the nearest half band (x.25 → x.5, x.75 → next whole).</p>`+S.exams.map((e,i)=>`<div class=card>${e.d} · L${e.v[0]} R${e.v[1]} W${e.v[2]} S${e.v[3]} → <b>Overall ${e.o.toFixed(1)}</b> <button class="b s" data-a=delE data-i=${i}>✕</button></div>`).reverse().join('')||'');
 
-/* ---- AI Agent ---- */
-const D=[['ubiquitous','w','present everywhere','Smartphones are ubiquitous in modern life.'],['mitigate','w','make less severe','Policies can mitigate the effects of pollution.'],['exacerbate','w','make a problem worse','Cuts to services exacerbate inequality.'],['ameliorate','w','make better','Training can ameliorate skill shortages.'],['pragmatic','w','practical rather than idealistic','A pragmatic approach suits this issue.'],['meticulous','w','extremely careful and precise','She kept meticulous records.'],['ephemeral','w','lasting a very short time','Fame on social media is ephemeral.'],['detrimental','w','harmful','Sleep loss is detrimental to learning.'],['paramount','w','of the highest importance','Safety is paramount.'],['resilient','w','able to recover quickly','Resilient economies adapt to shocks.'],['proliferate','w','increase rapidly in number','Fast-food outlets have proliferated.'],['curtail','w','reduce or restrict','Governments should curtail emissions.'],['stringent','w','strict and demanding','Stringent rules protect consumers.'],['tenable','w','able to be defended','That argument is no longer tenable.'],['a double-edged sword','i','something with good and bad effects','Technology is a double-edged sword.'],['the tip of the iceberg','i','a small visible part of a bigger problem','Those cases are the tip of the iceberg.'],['break the ice','i','start a conversation in a tense setting','A joke helped break the ice.'],['hit the nail on the head','i','describe something exactly','You hit the nail on the head.'],['on the same page','i','in agreement','Let us make sure we are on the same page.'],['a blessing in disguise','i','a bad thing with a good outcome','Losing that job was a blessing in disguise.'],['burn the midnight oil','i','work late into the night','I burned the midnight oil before the exam.'],['bite the bullet','i','face something unpleasant bravely','She bit the bullet and sat the test.'],['once in a blue moon','i','very rarely','We eat out once in a blue moon.'],['the elephant in the room','i','an obvious issue nobody mentions','Cost is the elephant in the room.']];
-const card=d=>`<div class=card><b>${d[0]}</b> <span class=mut>(${d[1]=='w'?'word':'idiom'})</span><br>${d[2]}<br><i>“${d[3]}”</i></div>`;
-function lookup(q){q=q.toLowerCase().trim();const r=q?D.filter(d=>(d[0]+' '+d[2]).toLowerCase().includes(q)):D.slice(0,6);$('#res').innerHTML=r.map(card).join('')||'<p class=mut>No entry yet. Try a related keyword such as “harm” or “increase”.</p>'}
-R['AI Agent']=()=>{show(`<h3>🔮 Band 8 Vocabulary Agent</h3><div class=mut style="margin-bottom:6px">Curated with <b>Dr. Mohamed Khalil</b></div><input id=sq placeholder="Search a word, idiom or meaning…" style="width:100%"><div id=res></div>`);lookup('')};
+/* ---- Band 8 Vocabulary & Idioms Library with "When & How to Say It" ---- */
+const D=[
+  ['ubiquitous','w','Present or found everywhere at the same time.','Smartphones have become ubiquitous in modern workplaces.','Writing Task 2 & Speaking Part 3 when describing technology, social media, or global trends.','Pronounce: yoo-BIK-wi-tus. Say “X has become ubiquitous” rather than “X is everywhere.”'],
+  ['mitigate','w','To make a problem, risk, or negative effect less severe.','Strict emission laws can mitigate the impact of urban pollution.','Writing Task 2 (Problem/Solution essays) and Speaking Part 3 policy discussions.','Pronounce: MIT-i-gayt. Always pair with a negative noun: “mitigate the risk / damage / impact.”'],
+  ['exacerbate','w','To make an existing problem or bad situation even worse.','Traffic congestion is exacerbated by inadequate public transit.','Writing Task 2 & Speaking Part 3 when explaining causes of worsening issues.','Pronounce: ig-ZAS-er-bayt. Great upgrade for “make worse.”'],
+  ['ameliorate','w','To improve a bad or unsatisfactory situation.','Targeted vocational training can ameliorate youth unemployment.','Formal Writing Task 2 essays proposing solutions.','Pronounce: uh-MEEL-yuh-rayt. Use in formal essays instead of “make better.”'],
+  ['pragmatic','w','Dealing with problems sensibly and realistically rather than theoretically.','City planners need a pragmatic approach to housing shortages.','Speaking Part 3 & Writing Task 2 when evaluating solutions or leadership.','Pronounce: prag-MAT-ik. Say “take a pragmatic approach to…”'],
+  ['meticulous','w','Showing great attention to detail; very careful and precise.','Our technical team keeps meticulous maintenance records.','Speaking Part 1/2 (describing work habits or a person) & Formal Letters.','Pronounce: muh-TIK-yoo-lus. Say “meticulous planning / attention to detail.”'],
+  ['ephemeral','w','Lasting for a very short time.','Fame on social media platforms is often ephemeral.','Writing Task 2 & Speaking Part 3 when contrasting temporary trends with lasting value.','Pronounce: ih-FEM-er-ul. Use to describe trends, fame, or short-lived benefits.'],
+  ['detrimental','w','Causing harm or damage.','Excessive screen time is detrimental to sleep quality.','Writing Task 2 & Speaking Part 3 when discussing negative consequences.','Pronounce: det-ri-MEN-tul. Always follow with “to”: “detrimental to health / productivity.”'],
+  ['paramount','w','More important than anything else; supreme.','Passenger safety is of paramount importance in aviation.','Writing Task 2 & Formal Letters when emphasizing top priorities.','Pronounce: PAR-uh-mount. Say “is of paramount importance” or “is paramount.”'],
+  ['resilient','w','Able to recover quickly from difficulties or adapt to change.','Resilient supply chains can withstand unexpected disruptions.','Speaking Part 2/3 (describing people, economies, or cities) & Writing Task 2.','Pronounce: ri-ZIL-yunt. Pair with people, communities, or economies.'],
+  ['proliferate','w','To increase rapidly in number or spread quickly.','Online learning platforms have proliferated over the past five years.','Writing Task 2 & Speaking Part 3 when describing rapid growth.','Pronounce: pruh-LIF-uh-rayt. Intransitive verb: say “X has proliferated” (no object after it).'],
+  ['curtail','w','To reduce, limit, or restrict something.','Governments must curtail single-use plastic production.','Writing Task 2 & Speaking Part 3 when recommending restrictions.','Pronounce: ker-TAYL. Strong formal replacement for “cut down on.”'],
+  ['stringent','w','Very strict, precise, and strictly enforced.','The ministry introduced stringent quality standards for devices.','Writing Task 2 & Formal Letters regarding laws, rules, or safety checks.','Pronounce: STRIN-junt. Pair with “regulations / standards / criteria.”'],
+  ['indispensable','w','Absolutely necessary; impossible to do without.','Digital literacy has become an indispensable skill in the modern economy.','Speaking Part 1/3 & Writing Task 2 when highlighting essential tools or skills.','Pronounce: in-di-SPEN-suh-bul. Say “an indispensable part of…”'],
+  ['a double-edged sword','i','Something that brings both advantages and disadvantages.','Artificial intelligence is a double-edged sword: it boosts efficiency but risks job displacement.','Speaking Part 3 & Writing Task 2 Discussion essays when introducing balanced views.','Say naturally with a pause: “X is a double-edged sword; on one hand…, on the other…”'],
+  ['the tip of the iceberg','i','A small visible part of a much larger hidden problem.','Reported data breaches are merely the tip of the iceberg.','Speaking Part 3 & Semi-Formal contexts when discussing deeper issues.','Say: “This issue is just the tip of the iceberg.”'],
+  ['break the ice','i','To say or do something to relieve tension and start friendly conversation.','Our instructor told a light joke at the start of the workshop to break the ice.','Speaking Part 1/2 when describing social events, meetings, or first days.','Say: “To break the ice, we started with…”'],
+  ['hit the nail on the head','i','To describe a situation or cause with 100% accuracy.','Dr. Khalil hit the nail on the head when he pointed out my pacing issue.','Speaking Part 1/2/3 when agreeing strongly with someone’s insight.','Use in Speaking (avoid in formal Writing Task 2): “You really hit the nail on the head.”'],
+  ['on the same page','i','Thinking in the same way; in full agreement.','Before launching the project, we held a briefing to ensure everyone was on the same page.','Speaking Part 1/2 (work/teamwork topics) & Semi-Formal communication.','Say: “We are all on the same page regarding…”'],
+  ['a blessing in disguise','i','An apparent misfortune that eventually leads to a good result.','Missing that flight turned out to be a blessing in disguise because I met a mentor at the lounge.','Speaking Part 2 stories about unexpected changes or setbacks.','Keep the article “a”: “It turned out to be a blessing in disguise.”'],
+  ['burn the midnight oil','i','To study or work late into the night.','I have been burning the midnight oil to prepare for my December IELTS exam.','Speaking Part 1/2 when talking about exam preparation or tight deadlines.','Say: “I had to burn the midnight oil last week.”'],
+  ['bite the bullet','i','To force yourself to do something difficult or unpleasant that you have been avoiding.','I finally decided to bite the bullet and book the computer-delivered IELTS test.','Speaking Part 2 when describing a tough decision or challenge.','Say: “I bit the bullet and…”'],
+  ['once in a blue moon','i','Very rarely; almost never.','Because of my busy work schedule, I only eat at restaurants once in a blue moon.','Speaking Part 1 when asked “How often do you…?”','Place at the end of the sentence: “I go to the cinema once in a blue moon.”'],
+  ['the elephant in the room','i','An obvious major problem that everyone avoids mentioning.','Budget constraints remained the elephant in the room throughout the meeting.','Speaking Part 3 when discussing ignored social or workplace problems.','Say: “Cost is really the elephant in the room here.”']
+];
+
+const card=d=>`<div class=card>
+  <b>${E(d[0])}</b> <span class=mut>(${d[1]=='w'?'Academic Word':'Idiom'})</span>
+  <div style="margin-top:4px"><b>Meaning:</b> ${E(d[2])}</div>
+  <div><b>When to use:</b> ${E(d[4]||'Speaking & Writing')}</div>
+  <div><b>How to say it:</b> ${E(d[5]||'Use naturally in context.')}</div>
+  <div style="margin-top:4px"><i>Example: “${E(d[3])}”</i></div>
+</div>`;
+
+function lookup(q){q=q.toLowerCase().trim();const r=q?D.filter(d=>(d[0]+' '+d[2]+' '+(d[4]||'')+' '+(d[5]||'')).toLowerCase().includes(q)):D;$('#res').innerHTML=r.map(card).join('')||'<p class=mut>No entry yet. Try searching another keyword.</p>'}
+R['AI Agent']=()=>{show(`<h3>🔮 Band 8 Vocabulary & Idioms Agent</h3><div class=mut style="margin-bottom:6px">Full Library with <b>When & How to Say It</b> · Curated with <b>Dr. Mohamed Khalil</b></div><input id=sq placeholder="Search any word, idiom, situation, or meaning…" style="width:100%"><div id=res></div>`);lookup('')};
 
 /* ---- Idioms ---- */
 const dn=Math.floor(Date.now()/864e5),dw=D.filter(x=>x[1]=='w'),di=D.filter(x=>x[1]=='i'),daily=()=>[dw[dn%dw.length],di[dn%di.length]];
 H.chest=()=>{if(S.chest!==today()){S.chest=today();gain(10)}refresh()};
-H.vs=t=>{const d=daily()[t.dataset.i];if(!S.vault.some(v=>v.w===d[0])){S.vault.push({w:d[0],m:d[2]});save();toast('Saved to vault')}refresh()};
-H.va=()=>{const w=$('#vw').value.trim();if(w){S.vault.push({w,m:$('#vm').value.trim()});save();refresh()}};
+H.vs=t=>{const d=daily()[t.dataset.i];if(!S.vault.some(v=>v.w===d[0])){S.vault.push({w:d[0],m:d[2],wh:d[4],hw:d[5]});save();toast('Saved to vault')}refresh()};
+H.va=()=>{const w=$('#vw').value.trim();if(w){S.vault.push({w,m:$('#vm').value.trim(),wh:$('#vwh').value.trim(),hw:$('#vhw').value.trim()});save();refresh()}};
 H.vd=t=>{S.vault.splice(t.dataset.i,1);save();refresh()};
 R.Idioms=()=>{const o=S.chest===today(),dd=daily();let body='';
-  if(tab==='study')body=STUDY.Idioms+`<div class=row><button class=b data-a=tab data-t=prac>Open Treasure & Vault →</button></div>`;
-  else if(tab==='gram')body=GRAM.Idioms+`<div class=row><button class=b data-a=tab data-t=prac>Open Treasure & Vault →</button></div>`;
-  else body=(o?dd.map((d,i)=>card(d)+`<button class="b s" data-a=vs data-i=${i}>Save to vault</button>`).join('')+'<p class=mut>Come back tomorrow for new treasure.</p>':`<div class=row><button class=b data-a=chest>🧰 Open today’s chest (+10 XP)</button></div>`)+`<h3>🗝️ Personal vault</h3><div class=row><input id=vw placeholder="Word or idiom"><input id=vm placeholder="Meaning"><button class=b data-a=va>Add</button></div>`+S.vault.map((v,i)=>`<div class=card><b>${E(v.w)}</b> – ${E(v.m)} <button class="b s" data-a=vd data-i=${i}>✕</button></div>`).join('');
-  show(`<h3>💰 Idioms & Vocabulary</h3>${tabs('Idioms','🎯 Chest & Vault')}${body}`)};
+  if(tab==='study')body=(o?dd.map((d,i)=>card(d)+`<button class="b s" data-a=vs data-i=${i}>Save to vault</button>`).join('')+'<p class=mut>Come back tomorrow for new treasure.</p>':`<div class=row><button class=b data-a=chest>🧰 Open today’s chest (+10 XP)</button></div>`)+`<h3>🗝️ Personal Word & Idiom Vault (When & How to Say)</h3><div class=card><div class=row><input id=vw placeholder="Word or idiom" style="flex:1"><input id=vm placeholder="Meaning" style="flex:1"></div><div class=row><input id=vwh placeholder="When to use (e.g., Speaking Part 2)" style="flex:1"><input id=vhw placeholder="How to say it / example" style="flex:1"></div><button class=b data-a=va>+ Add to Vault</button></div>`+S.vault.map((v,i)=>`<div class=card><b>${E(v.w)}</b> – ${E(v.m)}${v.wh?`<br><span class=mut><b>When:</b> ${E(v.wh)}</span>`:''}${v.hw?`<br><span class=mut><b>How:</b> ${E(v.hw)}</span>`:''} <div style="margin-top:4px"><button class="b s" data-a=vd data-i=${i}>✕ Remove</button></div></div>`).join('');
+  else if(tab==='gram')body=GRAM.Idioms+`<div class=row><button class=b data-a=tab data-t=study>Back to Vault →</button></div>`;
+  else body=D.map(card).join('');
+  show(`<h3>💰 Idioms & Vocabulary</h3>${tabs('Idioms','📖 Full Library ('+D.length+')')}${body}`)};
 
 /* ---- Profile & About ---- */
 H.nm=t=>{S.name=t.value.trim()||'George Samir Lamee';save();hud()};
-R.Profile=()=>{const l=Math.floor(S.xp/100)+1,best=S.exams.length?Math.max(...S.exams.map(e=>e.o)):null;show(`<h3>🗺️ Explorer Profile</h3><div class=row><input value="${E(S.name)}" onchange="H.nm(this)" aria-label="Name"><label>Target band <select onchange="S.target=+this.value;save()">${[6,6.5,7,7.5,8,8.5,9].map(b=>`<option${b==S.target?' selected':''}>${b}</option>`).join('')}</select></label></div><div class=card><b>Level ${l}</b> · ${S.xp} XP<div class=bar><i style="width:${S.xp%100}%"></i></div></div>`+Object.keys(S.trk).map(k=>`<div>${k} · ${S.trk[k]}%<div class=bar><i style="width:${S.trk[k]}%"></i></div></div>`).join('')+`<p>Best mock overall: <b>${best??'–'}</b> / target <b>${S.target}</b></p><div class=card><b>👨‍🏫 Lead IELTS Tutor:</b> Dr. Mohamed Khalil<br><b>🛠️ App Creator:</b> George Samir Lamee</div>`)};
+H.key=t=>{S.apiKey=t.value.trim();save();toast('Gemini AI Key saved!')};
+R.Profile=()=>{const l=Math.floor(S.xp/100)+1,best=S.exams.length?Math.max(...S.exams.map(e=>e.o)):null;show(`<h3>🗺️ Explorer Profile</h3>
+<div class=row><input value="${E(S.name)}" onchange="H.nm(this)" aria-label="Name"><label>Target band <select onchange="S.target=+this.value;save()">${[6,6.5,7,7.5,8,8.5,9].map(b=>`<option${b==S.target?' selected':''}>${b}</option>`).join('')}</select></label></div>
+<div class=card style="border:2px solid var(--acc)"><b>🔑 Free Gemini AI Key (Real Audio & Essay Examiner):</b>
+  <div class=row><input type=password value="${E(S.apiKey||'')}" onchange="H.key(this)" placeholder="Paste AIzaSy... key here" style="flex:1"></div>
+  <div class=mut>Get a free API key at <b>aistudio.google.com</b> (no credit card required). Enables real voice transcription, silence detection, and Band 8.5 corrections.</div>
+</div>
+<div class=card><b>Level ${l}</b> · ${S.xp} XP<div class=bar><i style="width:${S.xp%100}%"></i></div></div>`+Object.keys(S.trk).map(k=>`<div>${k} · ${S.trk[k]}%<div class=bar><i style="width:${S.trk[k]}%"></i></div></div>`).join('')+`<p>Best mock overall: <b>${best??'–'}</b> / target <b>${S.target}</b></p><div class=card><b>👨‍🏫 Lead IELTS Tutor:</b> Dr. Mohamed Khalil<br><b>🛠️ App Creator:</b> George Samir Lamee</div>`)};
 
 R.About=()=>show(`<h3>ℹ️ About IELTS Island</h3>
-<div class=card><b>IELTS Island: Band 8 Quest</b><br><span class=mut>Comprehensive Study, Grammar & AI Evaluation Companion</span></div>
+<div class=card><b>IELTS Island: Band 8 Quest</b><br><span class=mut>Course-Driven Study, Grammar & AI Evaluation Companion</span></div>
 <div class=card><b>🛠️ Created & Developed by:</b><br><span style="font-size:17px;font-weight:700">George Samir Lamee</span></div>
 <div class=card><b>👨‍🏫 Lead IELTS Academic Tutor:</b><br><span style="font-size:17px;font-weight:700">Dr. Mohamed Khalil</span></div>
 <div class=card><b>✨ Core Modules:</b><ul style="margin:6px 0 0 18px;padding:0">
-<li>Study-First Guides & Skill-Specific Grammar References</li>
-<li>Speaking Recorder with 4-Criteria IELTS Band Evaluation</li>
-<li>Writing Task 1 (Letters) & Task 2 (Essays) Evaluator + Correction Suggestions</li>
-<li>Offline Course Material Library & Daily Study Planner</li>
+<li>In-App Course Material Viewer (PDF, Images & Notes) + YouTube Course Channel Playlists</li>
+<li>Skill-Specific Grammar References</li>
+<li>Real Multimodal AI Speaking Examiner (Audio Transcription, Silence Check & Pronunciation/Grammar Feedback)</li>
+<li>Writing Task 1 (Letters) & Task 2 (Essays) AI Evaluator + Line-by-Line Corrections</li>
+<li>Band 8 Vocabulary & Idioms Library with When & How to Say Coaching</li>
 </ul></div>`);
 
-/* ---- Course materials & To-Do ---- */
+/* ---- Course materials (In-App PDF/Image/Text Viewer) & To-Do ---- */
 H.pickM=()=>{const inp=$('#mf');if(inp){inp.value='';inp.click()}};
 H.onPick=()=>{const fs=[...($('#mf')?.files||[])];if($('#mfLbl'))$('#mfLbl').textContent=fs.length?fs.map(f=>f.name).join(', '):'No file selected yet'};
 H.addM=async()=>{const fs=[...($('#mf')?.files||[])],tr=$('#mt').value,nt=$('#mn').value.trim();if(!fs.length&&!nt)return toast('Choose a file or write a study note');
 for(const f of fs){const id=Date.now()+Math.floor(Math.random()*10000);await putFile(id,f);S.mats.push({id,n:f.name,tr,nt,hasFile:true,type:f.type})}
 if(!fs.length)S.mats.push({id:Date.now(),n:nt.slice(0,45),tr,nt,hasFile:false});
-save();toast('Material saved!');refresh()};
-H.openM=async t=>{const m=S.mats[t.dataset.i];if(!m)return;
-if(m.hasFile){const blob=await getFile(m.id);if(!blob)return toast('File data not found');
-const url=URL.createObjectURL(blob);
-if((m.type||'').startsWith('image/')){$('#mView').innerHTML=`<div class=card><b>${E(m.n)}</b><br><img src="${url}" style="max-width:100%;border-radius:8px;margin-top:6px"></div>`;return}
-if((m.type||'').startsWith('text/')||/\.(txt|md|csv|json)$/i.test(m.n)){const txt=await blob.text();$('#mView').innerHTML=`<div class=card><b>${E(m.n)}</b><pre style="white-space:pre-wrap;font:13px system-ui;margin-top:6px">${E(txt)}</pre></div>`;return}
-const a=document.createElement('a');a.href=url;a.download=m.n;document.body.appendChild(a);a.click();a.remove();toast('Opening '+m.n)}
-else{$('#mView').innerHTML=`<div class=card><b>${E(m.n)}</b><p>${E(m.nt||'')}</p></div>`}};
+save();toast('Material saved to '+tr+'!');refresh()};
+H.openM=t=>{const m=S.mats[t.dataset.i];if(m)viewMaterial(m.id,'#mView')};
 H.sched=t=>{const m=S.mats[t.dataset.i];S.todo.push({id:Date.now(),t:m.n,tr:m.tr,date:today(),done:false});save();hud();toast('Added to Today’s To-Do')};
 H.delM=async t=>{const m=S.mats[t.dataset.i];if(m&&m.hasFile)await delFile(m.id);S.mats.splice(t.dataset.i,1);save();refresh()};
 
-R.Materials=()=>show(`<h3 style="clear:none">📚 Course Materials</h3><div class=mut style="margin-bottom:6px">Dr. Mohamed Khalil’s Library</div>
+R.Materials=()=>show(`<h3 style="clear:none">📚 Course Materials</h3><div class=mut style="margin-bottom:6px">Dr. Mohamed Khalil’s Course Library</div>
 <div class=card>
   <input type=file id=mf multiple style="display:none" onchange="H.onPick()">
-  <div class=row><button class="b s" data-a=pickM>📂 Choose File (PDF / Image / Doc / Txt)</button><span id=mfLbl class=mut>No file selected yet</span></div>
-  <div class=row><label>Category: <select id=mt>${['Listening','Reading','Writing','Speaking','Vocabulary'].map(t=>`<option>${t}</option>`).join('')}</select></label></div>
+  <div class=row><button class="b s" data-a=pickM>📂 Choose File (PDF / Image / Txt)</button><span id=mfLbl class=mut>No file selected yet</span></div>
+  <div class=row><label>Assign to Section: <select id=mt>${['Listening','Reading','Writing','Speaking','Vocabulary'].map(t=>`<option>${t}</option>`).join('')}</select></label></div>
   <input id=mn placeholder="Study note or summary (optional)" style="width:100%">
   <div class=row><button class=b data-a=addM>⬆️ Upload & Save Material</button></div>
 </div>
