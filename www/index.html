@@ -30,7 +30,7 @@ body{background:#0b5f87;font-family:Georgia,"Palatino Linotype",serif;color:var(
 #hud{position:fixed;right:8px;top:calc(8px + env(safe-area-inset-top,0px));z-index:20;background:var(--card);color:var(--ink);border:3px solid #4a2d10;border-radius:12px;padding:6px 10px;font-weight:700;font-size:13px;min-width:165px}
 #hud .bar{margin-top:3px;height:8px}
 #banner{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:40;background:#ffd24a;color:#3b2410;border:3px solid #4a2d10;border-radius:12px;padding:8px 14px;font-weight:700;display:none;max-width:75vw;text-align:center;box-shadow:0 4px 12px #0006}
-#toast{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:8px 15px;border-radius:20px;z-index:60;display:none;font:14px system-ui}
+#toast{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:8px 15px;border-radius:20px;z-index:60;display:none;font:14px system-ui;text-align:center;max-width:88vw}
 #modal{position:fixed;inset:0;background:#0008;z-index:30;display:none;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
 #modal.on{display:flex}#modal.l{justify-content:flex-start}
 .box{position:relative;background:var(--card);color:var(--ink);border:4px solid #4a2d10;border-radius:16px;width:min(95vw,680px);max-height:90dvh;overflow:auto;padding:14px 16px;font:15px/1.45 system-ui,sans-serif}
@@ -43,7 +43,6 @@ textarea{width:100%;min-height:145px}
 .bar{height:12px;background:#7f7f7f40;border-radius:8px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ok)}
 .card{background:#7f7f7f1a;border-radius:10px;padding:9px 11px;margin:8px 0}
 h3{margin:.2em 0 .4em;font-family:Georgia,serif}.mut{color:var(--mut);font-size:13px}
-iframe.docv{width:100%;height:62vh;border:2px solid var(--wood);border-radius:8px;background:#fff;margin-top:6px}
 @media (prefers-reduced-motion:reduce){.walk #hi{animation:none}}
 </style>
 </head>
@@ -62,7 +61,7 @@ let S={name:'George Samir Lamee',target:8,apiKey:'',xp:0,todo:[],mats:[],ytLinks
 try{Object.assign(S,JSON.parse(localStorage.getItem(K)||localStorage.getItem('ielts_island_v3')||localStorage.getItem('ielts_island_v2')||'{}'))}catch(e){}
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){toast('Saved in app database')}};
 
-/* ---- IndexedDB for offline Android PDF / Image / Doc viewing ---- */
+/* ---- IndexedDB for storing uploaded PDF / Word / Image files ---- */
 const idb=()=>new Promise((res,rej)=>{const r=indexedDB.open('ielts_island_files',1);r.onupgradeneeded=()=>r.result.createObjectStore('files');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
 async function putFile(id,blob){try{const db=await idb();return new Promise((res,rej)=>{const tx=db.transaction('files','readwrite');tx.objectStore('files').put(blob,String(id));tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}catch(e){}}
 async function getFile(id){try{const db=await idb();return new Promise((res,rej)=>{const tx=db.transaction('files','readonly');const rq=tx.objectStore('files').get(String(id));rq.onsuccess=()=>res(rq.result);rq.onerror=()=>rej(rq.error)})}catch(e){return null}}
@@ -95,7 +94,7 @@ async function askGemini(parts){
   throw new Error(lastErr);
 }
 
-function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',2400)}
+function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',3000)}
 function gain(xp,trk){S.xp+=xp;if(trk&&S.trk[trk]!=null)S.trk[trk]=Math.min(100,S.trk[trk]+10);save();hud();toast('+'+xp+' XP')}
 function hud(){const l=Math.floor(S.xp/100)+1;$('#hud').innerHTML=`${E(S.name)} · Lv ${l} · ${S.xp} XP<div class=bar><i style="width:${S.xp%100}%"></i></div><div class=mut style="font-size:11px;margin-top:2px">Tutor: Dr. Mohamed Khalil</div>`;const p=pend().length;$('#badge').textContent=p;$('#badge').style.display=p?'block':'none'}
 const pend=()=>S.todo.filter(t=>t.date===today()&&!t.done);
@@ -143,50 +142,68 @@ const tabs=(cat,pLabel='🎯 Practice & Evaluate')=>`<div class=mut style="margi
 <button class="b ${tab==='prac'?'':'s'}" data-a=tab data-t=prac>${pLabel}</button>
 </div>`;
 
-/* ---- Universal In-App Document Viewer (Works offline inside Android WebView) ---- */
-async function viewMaterial(id,targetEl){
+/* ---- Open Uploaded PDF / Doc / File in Phone's Installed App ---- */
+function guessMime(name,type){
+  if(type&&type!=='application/octet-stream')return type;
+  const ext=(name.split('.').pop()||'').toLowerCase();
+  const map={
+    pdf:'application/pdf',
+    doc:'application/msword',
+    docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ppt:'application/vnd.ms-powerpoint',
+    pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    xls:'application/vnd.ms-excel',
+    xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    txt:'text/plain',
+    md:'text/plain',
+    png:'image/png',
+    jpg:'image/jpeg',
+    jpeg:'image/jpeg'
+  };
+  return map[ext]||'application/octet-stream';
+}
+
+async function openInPhoneApp(id,targetEl){
   const m=S.mats.find(x=>String(x.id)===String(id));
   if(!m)return;
-  const box=$(targetEl);
+  const box=targetEl?$(targetEl):null;
+
   if(!m.hasFile){
-    box.innerHTML=`<div class=card style="border:2px solid var(--wood)"><b>${E(m.n)}</b><p>${E(m.nt||'')}</p><button class="b s" onclick="this.parentElement.remove()">Close Viewer</button></div>`;
+    if(box){
+      box.innerHTML=`<div class=card style="border:2px solid var(--wood)"><b>📝 ${E(m.n)}</b><p>${E(m.nt||'')}</p><button class="b s" onclick="this.parentElement.remove()">Close Note</button></div>`;
+    }
     return;
   }
-  box.innerHTML=`<div class=card>Loading <b>${E(m.n)}</b>…</div>`;
-  const blob=await getFile(m.id);
-  if(!blob){box.innerHTML='';return toast('File data not found in storage')}
-  const lower=m.n.toLowerCase();
-  const isPdf=(m.type==='application/pdf')||lower.endsWith('.pdf');
-  const isImg=(m.type||'').startsWith('image/')||/\.(png|jpe?g|gif|webp)$/i.test(lower);
-  const isTxt=(m.type||'').startsWith('text/')||/\.(txt|md|csv|json)$/i.test(lower);
 
-  if(isPdf){
-    const dataUrl=await toDataURL(blob);
-    box.innerHTML=`<div class=card style="border:2px solid var(--wood)">
-      <div class=row style="justify-content:space-between"><b>📄 ${E(m.n)}</b><button class="b s" onclick="this.closest('.card').remove()">✕ Close PDF</button></div>
-      <iframe class="docv" src="${dataUrl}"></iframe>
-    </div>`;
-  }else if(isImg){
-    const dataUrl=await toDataURL(blob);
-    box.innerHTML=`<div class=card style="border:2px solid var(--wood)">
-      <div class=row style="justify-content:space-between"><b>🖼️ ${E(m.n)}</b><button class="b s" onclick="this.closest('.card').remove()">✕ Close Image</button></div>
-      <img src="${dataUrl}" style="max-width:100%;border-radius:8px;margin-top:6px">
-    </div>`;
-  }else if(isTxt){
-    const txt=await blob.text();
-    box.innerHTML=`<div class=card style="border:2px solid var(--wood)">
-      <div class=row style="justify-content:space-between"><b>📝 ${E(m.n)}</b><button class="b s" onclick="this.closest('.card').remove()">✕ Close</button></div>
-      <pre style="white-space:pre-wrap;font:13px system-ui;margin-top:6px">${E(txt)}</pre>
-    </div>`;
-  }else{
-    box.innerHTML=`<div class=card style="border:2px solid var(--wood)">
-      <b>📎 ${E(m.n)}</b><p class=mut>Note: ${E(m.nt||'No summary note')}</p>
-      <p class=mut>Tip: Convert .docx files to PDF before uploading so they render directly inside the app screen on Android.</p>
-      <button class="b s" onclick="this.closest('.card').remove()">Close</button>
-    </div>`;
+  toast('Opening '+m.n+' in phone app…');
+  const blob=await getFile(m.id);
+  if(!blob)return toast('File data not found in storage');
+
+  const mime=guessMime(m.n,m.type||blob.type);
+  const dataUrl=await toDataURL(blob);
+  const b64=dataUrl.split(',')[1];
+
+  // 1. Native Android APK Path: launch external installed app via FileProvider Intent
+  if(window.AndroidFileBridge&&typeof window.AndroidFileBridge.openExternalFile==='function'){
+    window.AndroidFileBridge.openExternalFile(m.n,mime,b64);
+    if(box){
+      box.innerHTML=`<div class=card style="border:1px solid var(--wood)">
+        <b>📲 Sent to Phone App:</b> ${E(m.n)}<br>
+        <span class=mut>If no app opened, you need to download a PDF or Document viewer app (such as Adobe Acrobat, Google Drive PDF Viewer, or WPS Office) from the <b>Google Play Store</b>.</span>
+      </div>`;
+    }
+    return;
+  }
+
+  // 2. Desktop / Web Browser Fallback
+  const url=URL.createObjectURL(new Blob([blob],{type:mime}));
+  const win=window.open(url,'_blank');
+  if(!win){
+    const a=document.createElement('a');
+    a.href=url;a.download=m.n;document.body.appendChild(a);a.click();a.remove();
   }
 }
-H.openById=t=>viewMaterial(t.dataset.id,t.dataset.box||'#secView');
+H.openById=t=>openInPhoneApp(t.dataset.id,t.dataset.box||'#secView');
 
 /* ---- Course-Only Materials + YouTube Course Videos Renderer per Category ---- */
 H.addSecYT=t=>{
@@ -210,11 +227,11 @@ function renderCourseSection(cat){
     ? list.map(m=>`<div class=card>
         <b>📄 ${E(m.n)}</b>
         ${m.nt?`<div class=mut style="margin-top:3px">${E(m.nt)}</div>`:''}
-        <div class=row><button class=b data-a=openById data-id="${m.id}" data-box="#secView_${cat}">👁️ Open Material</button></div>
+        <div class=row><button class=b data-a=openById data-id="${m.id}" data-box="#secView_${cat}">📲 Open in Phone App</button></div>
       </div>`).join('')
     : `<div class=card style="border:1px dashed var(--wood);text-align:center;padding:14px">
         <b>No material uploaded for ${cat} till now.</b>
-        <div class=mut style="margin-top:4px">Open <b>📚 Course Materials</b> on the left sidebar and upload your ${cat} PDF, image, or notes to display them here.</div>
+        <div class=mut style="margin-top:4px">Open <b>📚 Course Materials</b> on the left sidebar and upload your ${cat} PDF, Word doc, or notes to display them here.</div>
       </div>`;
 
   const vidHtml=vids.length
@@ -544,33 +561,33 @@ R.About=()=>show(`<h3>ℹ️ About IELTS Island</h3>
 <div class=card><b>🛠️ Created & Developed by:</b><br><span style="font-size:17px;font-weight:700">George Samir Lamee</span></div>
 <div class=card><b>👨‍🏫 Lead IELTS Academic Tutor:</b><br><span style="font-size:17px;font-weight:700">Dr. Mohamed Khalil</span></div>
 <div class=card><b>✨ Core Modules:</b><ul style="margin:6px 0 0 18px;padding:0">
-<li>In-App Course Material Viewer (PDF, Images & Notes) + YouTube Course Channel Playlists</li>
-<li>Skill-Specific Grammar References</li>
+<li>Opens Course PDFs, Word Docs & Images directly in your phone's installed apps</li>
+<li>Skill-Specific Grammar References & YouTube Course Channel Playlists</li>
 <li>Real Multimodal AI Speaking Examiner (Audio Transcription, Silence Check & Pronunciation/Grammar Feedback)</li>
 <li>Writing Task 1 (Letters) & Task 2 (Essays) AI Evaluator + Line-by-Line Corrections</li>
 <li>Band 8 Vocabulary & Idioms Library with When & How to Say Coaching</li>
 </ul></div>`);
 
-/* ---- Course materials (In-App PDF/Image/Text Viewer) & To-Do ---- */
+/* ---- Course materials (Opens in Installed Phone App) & To-Do ---- */
 H.pickM=()=>{const inp=$('#mf');if(inp){inp.value='';inp.click()}};
 H.onPick=()=>{const fs=[...($('#mf')?.files||[])];if($('#mfLbl'))$('#mfLbl').textContent=fs.length?fs.map(f=>f.name).join(', '):'No file selected yet'};
 H.addM=async()=>{const fs=[...($('#mf')?.files||[])],tr=$('#mt').value,nt=$('#mn').value.trim();if(!fs.length&&!nt)return toast('Choose a file or write a study note');
 for(const f of fs){const id=Date.now()+Math.floor(Math.random()*10000);await putFile(id,f);S.mats.push({id,n:f.name,tr,nt,hasFile:true,type:f.type})}
 if(!fs.length)S.mats.push({id:Date.now(),n:nt.slice(0,45),tr,nt,hasFile:false});
 save();toast('Material saved to '+tr+'!');refresh()};
-H.openM=t=>{const m=S.mats[t.dataset.i];if(m)viewMaterial(m.id,'#mView')};
+H.openM=t=>{const m=S.mats[t.dataset.i];if(m)openInPhoneApp(m.id,'#mView')};
 H.sched=t=>{const m=S.mats[t.dataset.i];S.todo.push({id:Date.now(),t:m.n,tr:m.tr,date:today(),done:false});save();hud();toast('Added to Today’s To-Do')};
 H.delM=async t=>{const m=S.mats[t.dataset.i];if(m&&m.hasFile)await delFile(m.id);S.mats.splice(t.dataset.i,1);save();refresh()};
 
 R.Materials=()=>show(`<h3 style="clear:none">📚 Course Materials</h3><div class=mut style="margin-bottom:6px">Dr. Mohamed Khalil’s Course Library</div>
 <div class=card>
   <input type=file id=mf multiple style="display:none" onchange="H.onPick()">
-  <div class=row><button class="b s" data-a=pickM>📂 Choose File (PDF / Image / Txt)</button><span id=mfLbl class=mut>No file selected yet</span></div>
+  <div class=row><button class="b s" data-a=pickM>📂 Choose File (PDF / Word / Image / Txt)</button><span id=mfLbl class=mut>No file selected yet</span></div>
   <div class=row><label>Assign to Section: <select id=mt>${['Listening','Reading','Writing','Speaking','Vocabulary'].map(t=>`<option>${t}</option>`).join('')}</select></label></div>
   <input id=mn placeholder="Study note or summary (optional)" style="width:100%">
   <div class=row><button class=b data-a=addM>⬆️ Upload & Save Material</button></div>
 </div>
-<div id=mView></div>`+S.mats.map((m,i)=>`<div class=card><b>${E(m.n)}</b> <span class=mut>[${m.tr}]</span><div class=mut>${E(m.nt||'')}</div><div class=row><button class="b s" data-a=openM data-i=${i}>👁️ Open</button><button class=b data-a=sched data-i=${i}>📅 Add to today</button><button class="b s" data-a=delM data-i=${i}>✕</button></div></div>`).join(''));
+<div id=mView></div>`+S.mats.map((m,i)=>`<div class=card><b>${E(m.n)}</b> <span class=mut>[${m.tr}]</span><div class=mut>${E(m.nt||'')}</div><div class=row><button class="b s" data-a=openM data-i=${i}>📲 Open in Phone App</button><button class=b data-a=sched data-i=${i}>📅 Add to today</button><button class="b s" data-a=delM data-i=${i}>✕</button></div></div>`).join(''));
 
 H.dn=t=>{const it=S.todo.find(x=>x.id==t.dataset.id);it.done=!it.done;if(it.done&&!it.paid){it.paid=1;gain(10,it.tr)}save();hud();refresh()};
 H.dt=t=>{S.todo=S.todo.filter(x=>x.id!=t.dataset.id);save();hud();refresh()};
